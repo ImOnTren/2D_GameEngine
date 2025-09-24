@@ -60,34 +60,35 @@ void Engine::HandleEditModeInput() {
 // =      Camera Selection Logic        =
 // =======================================
 void Engine::UpdatePlayerCamera() {
-        if (!player) {
-            playerCameraArea = {0, 0, 0, 0};
-            return;
-        }
+    if (!player) {
+        playerCameraArea = {0, 0, 0, 0};
+        return;
+    }
 
-        // Get current resolution
-        int width = availableResolutions[selectedResolutionIndex].width;
-        int height = availableResolutions[selectedResolutionIndex].height;
+    // Get current resolution
+    int width = availableResolutions[selectedResolutionIndex].width;
+    int height = availableResolutions[selectedResolutionIndex].height;
 
-        Vector2 playerPos = player->GetPosition();
-        Vector2 playerSize = player->GetSize();
+    Vector2 playerPos = player->GetPosition();
+    Vector2 playerSize = player->GetSize();
 
-        // Calculate camera area centered on player
-        // Player position is top-left, so we need to center on player's center
-        Vector2 playerCenter = {
-            playerPos.x + playerSize.x / 2.0f,
-            playerPos.y + playerSize.y / 2.0f
-        };
+    // Calculate camera area (centered on player)
+    Vector2 playerCenter = {
+        playerPos.x + playerSize.x / 2.0f,
+        playerPos.y + playerSize.y / 2.0f
+    };
 
-        playerCameraArea = {
-            playerCenter.x - width / 2.0f,  // Left
-            playerCenter.y - height / 2.0f, // Top
-            static_cast<float>(width),      // Width
-            static_cast<float>(height)      // Height
-        };
+    playerCameraArea = {
+        playerCenter.x - width / 2.0f,
+        playerCenter.y - height / 2.0f,
+        static_cast<float>(width),
+        static_cast<float>(height)
+    };
 
-    // Set up camera for render texture
+    // CORRECTED: Set up camera to view the camera area
+    playerCamera.target = playerCenter;
     playerCamera.offset = {width / 2.0f, height / 2.0f};
+    playerCamera.rotation = 0.0f;
     playerCamera.zoom = 1.0f;
 
     // Update render texture size if needed
