@@ -13,6 +13,10 @@ public:
     void Draw();
     void PlaceOnGrid(int gridX, int gridY);
 
+    // Snapshot methods
+    std::unique_ptr<Entity> CreateSnapshot() const override;
+    void RestoreFromSnapshot(const Entity* snapshot) override;
+
     int GetGridX() const { return cellX; }
     int GetGridY() const { return cellY; }
 

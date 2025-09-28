@@ -56,8 +56,8 @@ public:
     void ResetTool() { currentTool = ToolState::NONE; }
     void UpdatePlayerCamera();
 
-    bool HasPlayer() const {
-        return editModePlayer != nullptr;
+    bool HasPlayer() {
+        return FindPlayerEntity() != nullptr;
     }
 
     const std::vector<CameraResolution>& GetAvailableResolutions() const {
@@ -80,6 +80,8 @@ public:
         }
     }
 
+    int GetEnemyCount() const;
+
     void StartPlayMode();
     void StopPlayMode();
 
@@ -88,13 +90,11 @@ private:
     PlayerManager playerManager;
     EnemyManager enemyManager;
 
-    // Edit mode entities (preserved when switching to play mode)
-    std::vector<std::unique_ptr<EnemyEntity>> editModeEnemies;
-    std::unique_ptr<PlayerEntity> editModePlayer;
+    // Single source of truth - edit mode entities
+    std::vector<std::unique_ptr<Entity>> editModeEntities;
 
-    // Play mode entities (copies for simulation)
-    std::vector<std::unique_ptr<EnemyEntity>> playModeEnemies;
-    std::unique_ptr<PlayerEntity> playModePlayer;
+    // Play mode uses snapshots - much more memory efficient
+    std::vector<std::unique_ptr<Entity>> playModeSnapshots;
 
     // Separate camera areas for edit mode and play mode
     Rectangle editModeCameraArea = {0, 0, 0, 0};  // Frozen during play mode
@@ -111,8 +111,10 @@ private:
     void HandleEditModeInput();
     bool IsMouseOverUI() const;
 
-    // methods for play mode management
-    void CopyEditToPlayMode();
-    void UpdateEditModeCamera();  // For edit mode camera area
-    void UpdatePlayModeCamera();  // For play mode camera area
+    // Helper methods
+    PlayerEntity* FindPlayerEntity();
+    void CreatePlayModeSnapshots();
+    void RestoreFromSnapshots();
+    void UpdatePlayModeCamera();
+    void UpdateEditModeCamera();
 };

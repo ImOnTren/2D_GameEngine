@@ -41,3 +41,28 @@ void EnemyEntity::PlaceOnGrid(int gridX, int gridY) {
     position = { static_cast<float>(cellX * tileSize), static_cast<float>(cellY * tileSize) };
     size = { static_cast<float>(tileSize), static_cast<float>(tileSize) };
 }
+
+// Snapshot implementation
+std::unique_ptr<Entity> EnemyEntity::CreateSnapshot() const {
+    // Create a new enemy with the same properties
+    auto snapshot = std::make_unique<EnemyEntity>(grid, cellX, cellY);
+    snapshot->SetPosition(position);
+    snapshot->SetVelocity(velocity);
+    snapshot->SetSize(size);
+    snapshot->SetActive(active);
+    return snapshot;
+}
+
+void EnemyEntity::RestoreFromSnapshot(const Entity* snapshot) {
+    const EnemyEntity* enemySnapshot = dynamic_cast<const EnemyEntity*>(snapshot);
+    if (enemySnapshot) {
+        // Copy the state
+        position = enemySnapshot->position;
+        velocity = enemySnapshot->velocity;
+        size = enemySnapshot->size;
+        rotation = enemySnapshot->rotation;
+        active = enemySnapshot->active;
+        cellX = enemySnapshot->cellX;
+        cellY = enemySnapshot->cellY;
+    }
+}

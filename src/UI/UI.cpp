@@ -122,6 +122,9 @@ void UI::RenderModeControls(Engine& engine) {
             case Engine::ToolState::REMOVING_ENEMY: ImGui::TextColored(ImVec4(0.8f, 0.2f, 0.2f, 1.0f), "Removing Enemy"); break;
         }
 
+        // Show enemy count
+        ImGui::Text("Enemies: %d/10", engine.GetEnemyCount());
+
         if (ImGui::Button("Clear Tool", ImVec2(120, 0))) {
             engine.ResetTool();
         }

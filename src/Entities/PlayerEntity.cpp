@@ -6,9 +6,43 @@ PlayerEntity::PlayerEntity(Grid& g, int gridX, int gridY)
     textureLoaded = LoadPlayerTexture("../src/assets/hugo.png");
 }
 
+PlayerEntity::PlayerEntity(const PlayerEntity& other)
+    : Entity(other), grid(other.grid), cellX(other.cellX), cellY(other.cellY),
+      textureLoaded(other.textureLoaded), speed(other.speed) {
+    // Note: We don't copy the texture, we share it
+    if (textureLoaded) {
+        playerTexture = other.playerTexture; // This is a handle copy, not deep copy
+    }
+}
+
 PlayerEntity::~PlayerEntity() {
     if (textureLoaded) {
         UnloadTexture(playerTexture);
+    }
+}
+
+// Snapshot implementation
+std::unique_ptr<Entity> PlayerEntity::CreateSnapshot() const {
+    // Create a new player with the same properties
+    auto snapshot = std::make_unique<PlayerEntity>(grid, cellX, cellY);
+    snapshot->SetPosition(position);
+    snapshot->SetVelocity(velocity);
+    snapshot->SetSize(size);
+    snapshot->SetActive(active);
+    return snapshot;
+}
+
+void PlayerEntity::RestoreFromSnapshot(const Entity* snapshot) {
+    const PlayerEntity* playerSnapshot = dynamic_cast<const PlayerEntity*>(snapshot);
+    if (playerSnapshot) {
+        // Copy the state
+        position = playerSnapshot->position;
+        velocity = playerSnapshot->velocity;
+        size = playerSnapshot->size;
+        rotation = playerSnapshot->rotation;
+        active = playerSnapshot->active;
+        cellX = playerSnapshot->cellX;
+        cellY = playerSnapshot->cellY;
     }
 }
 

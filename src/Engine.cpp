@@ -58,14 +58,13 @@ void Engine::HandleEditModeInput() {
 }
 
 void Engine::StartPlayMode() {
-    if (editModePlayer) {
-        CopyEditToPlayMode();
+    PlayerEntity* player = FindPlayerEntity();
+    if (player) {
+        CreatePlayModeSnapshots(); // Create lightweight snapshots
         playModeWindowOpen = true;
         currentMode = Mode::PLAY;
-
         UpdatePlayModeCamera();
     } else {
-        // Can't start play mode without a player
         playModeWindowOpen = false;
         currentMode = Mode::EDIT;
         TraceLog(LOG_WARNING, "Cannot start play mode: No player placed");
@@ -76,54 +75,38 @@ void Engine::StopPlayMode() {
     playModeWindowOpen = false;
     currentMode = Mode::EDIT;
     // Clear play mode entities
-    playModePlayer.reset();
-    playModeEnemies.clear();
+    playModeSnapshots.clear();
 }
 
-void Engine::CopyEditToPlayMode() {
-    // Copy player
-    if (editModePlayer) {
-        playModePlayer = std::make_unique<PlayerEntity>(grid, editModePlayer->GetGridX(), editModePlayer->GetGridY());
-        playModePlayer->SetPosition(editModePlayer->GetPosition());
+void Engine::CreatePlayModeSnapshots() {
+    playModeSnapshots.clear();
+    for (auto& entity : editModeEntities) {
+        playModeSnapshots.push_back(entity->CreateSnapshot());
     }
+}
 
-    // Copy enemies
-    playModeEnemies.clear();
-    for (auto& enemy : editModeEnemies) {
-        auto newEnemy = std::make_unique<EnemyEntity>(grid, enemy->GetGridX(), enemy->GetGridY());
-        newEnemy->SetPosition(enemy->GetPosition());
-        playModeEnemies.push_back(std::move(newEnemy));
+void Engine::RestoreFromSnapshots() {
+    for (size_t i = 0; i < editModeEntities.size() && i < playModeSnapshots.size(); ++i) {
+        editModeEntities[i]->RestoreFromSnapshot(playModeSnapshots[i].get());
     }
-
-    // Update camera for play mode
-    UpdatePlayerCamera();
 }
 
 // =======================================
 // =            Camera Logic             =
 // =======================================
-void Engine::UpdatePlayerCamera() {
-    if (currentMode == Mode::PLAY) {
-        UpdatePlayModeCamera();
-    } else {
-        UpdateEditModeCamera();
-    }
-}
-
 void Engine::UpdateEditModeCamera() {
-    if (!editModePlayer) {
+    PlayerEntity* player = FindPlayerEntity();
+    if (!player) {
         editModeCameraArea = {0, 0, 0, 0};
         return;
     }
 
-    // Get current resolution
     int width = availableResolutions[selectedResolutionIndex].width;
     int height = availableResolutions[selectedResolutionIndex].height;
 
-    Vector2 playerPos = editModePlayer->GetPosition();
-    Vector2 playerSize = editModePlayer->GetSize();
+    Vector2 playerPos = player->GetPosition();
+    Vector2 playerSize = player->GetSize();
 
-    // Calculate camera area (centered on player)
     Vector2 playerCenter = {
         playerPos.x + playerSize.x / 2.0f,
         playerPos.y + playerSize.y / 2.0f
@@ -136,20 +119,36 @@ void Engine::UpdateEditModeCamera() {
         static_cast<float>(height)
     };
 }
+
+void Engine::UpdatePlayerCamera() {
+    if (currentMode == Mode::PLAY) {
+        UpdatePlayModeCamera();
+    } else {
+        UpdateEditModeCamera();
+    }
+}
+
 void Engine::UpdatePlayModeCamera() {
-    if (!playModePlayer) {
+    // Find player in play mode snapshots
+    PlayerEntity* player = nullptr;
+    for (auto& entity : playModeSnapshots) {
+        if (auto p = dynamic_cast<PlayerEntity*>(entity.get())) {
+            player = p;
+            break;
+        }
+    }
+
+    if (!player) {
         playModeCameraArea = {0, 0, 0, 0};
         return;
     }
 
-    // Get current resolution
     int width = availableResolutions[selectedResolutionIndex].width;
     int height = availableResolutions[selectedResolutionIndex].height;
 
-    Vector2 playerPos = playModePlayer->GetPosition();
-    Vector2 playerSize = playModePlayer->GetSize();
+    Vector2 playerPos = player->GetPosition();
+    Vector2 playerSize = player->GetSize();
 
-    // Calculate camera area (centered on player)
     Vector2 playerCenter = {
         playerPos.x + playerSize.x / 2.0f,
         playerPos.y + playerSize.y / 2.0f
@@ -162,13 +161,11 @@ void Engine::UpdatePlayModeCamera() {
         static_cast<float>(height)
     };
 
-    // Set up camera to view the camera area
     playerCamera.target = playerCenter;
     playerCamera.offset = {width / 2.0f, height / 2.0f};
     playerCamera.rotation = 0.0f;
     playerCamera.zoom = 1.0f;
 
-    // Update render texture size if needed
     if (playModeTexture.texture.width != width || playModeTexture.texture.height != height) {
         if (playModeTexture.id != 0) {
             UnloadRenderTexture(playModeTexture);
@@ -180,19 +177,55 @@ void Engine::UpdatePlayModeCamera() {
 // =======================================
 // =          Player Functions           =
 // =======================================
+PlayerEntity* Engine::FindPlayerEntity() {
+    for (auto& entity : editModeEntities) {
+        if (auto player = dynamic_cast<PlayerEntity*>(entity.get())) {
+            return player;
+        }
+    }
+    return nullptr;
+}
+
 void Engine::HandlePlayerPlacement() {
     if (IsMouseOverUI()) return;
-    Vector2 mouseScreen = GetMousePosition();
-    if (playerManager.TryPlacePlayer(mouseScreen, grid.GetCamera(), editModePlayer)) {
-        UpdateEditModeCamera(); // Update camera when player is placed
+
+    if (FindPlayerEntity()) {
+        TraceLog(LOG_WARNING, "Player already exists. Remove current player first.");
+        return;
+    }
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Vector2 mouseScreen = GetMousePosition();
+        std::unique_ptr<PlayerEntity> tempPlayer;
+        if (playerManager.TryPlacePlayer(mouseScreen, grid.GetCamera(), tempPlayer)) {
+            if (tempPlayer) {
+                editModeEntities.push_back(std::move(tempPlayer));
+                UpdateEditModeCamera();
+            }
+        }
     }
 }
 
 void Engine::HandlePlayerRemoval() {
     if (IsMouseOverUI()) return;
-    Vector2 mouseScreen = GetMousePosition();
-    if (playerManager.TryRemovePlayer(mouseScreen, grid.GetCamera(), editModePlayer)) {
-        UpdateEditModeCamera(); // Update camera when player is removed
+
+    // Only remove on mouse click
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Vector2 mouseScreen = GetMousePosition();
+        Vector2 mouseWorld = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
+
+        for (auto it = editModeEntities.begin(); it != editModeEntities.end(); ++it) {
+            if (auto player = dynamic_cast<PlayerEntity*>(it->get())) {
+                Rectangle playerBounds = player->GetBounds();
+
+                // Check if mouse is inside player bounds
+                if (CheckCollisionPointRec(mouseWorld, playerBounds)) {
+                    editModeEntities.erase(it);
+                    UpdateEditModeCamera();
+                    return; // Exit after removing one player
+                }
+            }
+        }
     }
 }
 // =======================================
@@ -200,75 +233,119 @@ void Engine::HandlePlayerRemoval() {
 // =======================================
 void Engine::HandleEnemyPlacement() {
     if (IsMouseOverUI()) return;
-    Vector2 mouseScreen = GetMousePosition();
-    enemyManager.TryPlaceEnemy(mouseScreen, grid.GetCamera(), editModeEnemies);
+
+    // Only place on mouse click
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Vector2 mouseScreen = GetMousePosition();
+
+        // Count current enemies
+        int enemyCount = 0;
+        for (auto& entity : editModeEntities) {
+            if (dynamic_cast<EnemyEntity*>(entity.get())) {
+                enemyCount++;
+            }
+        }
+
+        // Enforce enemy limit
+        if (enemyCount >= 10) {
+            TraceLog(LOG_WARNING, "Maximum number of enemies reached (10). Cannot place more.");
+            return;
+        }
+
+        Vector2 mouseWorld = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
+        int tileSize = grid.GetTileSize();
+        int gridX = static_cast<int>(mouseWorld.x / tileSize);
+        int gridY = static_cast<int>(mouseWorld.y / tileSize);
+
+        auto newEnemy = std::make_unique<EnemyEntity>(grid, gridX, gridY);
+        editModeEntities.push_back(std::move(newEnemy));
+    }
 }
 void Engine::HandleEnemyRemoval() {
     if (IsMouseOverUI()) return;
-    Vector2 mouseScreen = GetMousePosition();
-    enemyManager.TryRemoveEnemy(mouseScreen, grid.GetCamera(), editModeEnemies);
+
+    // Only remove on mouse click
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Vector2 mouseScreen = GetMousePosition();
+        Vector2 mouseWorld = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
+
+        for (auto it = editModeEntities.begin(); it != editModeEntities.end(); ++it) {
+            if (auto enemy = dynamic_cast<EnemyEntity*>(it->get())) {
+                Rectangle enemyBounds = enemy->GetBounds();
+
+                // Check if mouse is inside enemy bounds
+                if (CheckCollisionPointRec(mouseWorld, enemyBounds)) {
+                    editModeEntities.erase(it);
+                    return; // Exit after removing one enemy
+                }
+            }
+        }
+    }
 }
+
+int Engine::GetEnemyCount() const {
+    int count = 0;
+    for (auto& entity : editModeEntities) {
+        if (dynamic_cast<EnemyEntity*>(entity.get())) {
+            count++;
+        }
+    }
+    return count;
+}
+
 // =======================================
 void Engine::Run() {
     while (!WindowShouldClose()) {
-        // Handle input based on current mode
         if (currentMode == Mode::EDIT) {
             HandleEditModeInput();
         }
 
-        // Update play mode if window is open
-        if (playModeWindowOpen && playModePlayer) {
-            // Update play mode player and enemies (separate from edit mode)
-            playModePlayer->Update(GetFrameTime());
-            for (auto& enemy : playModeEnemies) {
-                enemy->Update(GetFrameTime(), playModePlayer.get());
+        if (playModeWindowOpen && currentMode == Mode::PLAY) {
+            // Find player in play mode for enemy targeting
+            PlayerEntity* playModePlayer = nullptr;
+            for (auto& entity : playModeSnapshots) {
+                if (auto player = dynamic_cast<PlayerEntity*>(entity.get())) {
+                    playModePlayer = player;
+                    break;
+                }
             }
 
-            // Update camera to follow play mode player
+            // Update play mode entities
+            for (auto& entity : playModeSnapshots) {
+                if (auto player = dynamic_cast<PlayerEntity*>(entity.get())) {
+                    player->Update(GetFrameTime());
+                }
+                else if (auto enemy = dynamic_cast<EnemyEntity*>(entity.get())) {
+                    enemy->Update(GetFrameTime(), playModePlayer);
+                }
+            }
             UpdatePlayModeCamera();
         }
 
         BeginDrawing();
         ClearBackground(GRAY);
-
         grid.Draw();
 
-        // Always draw edit mode entities in the grid view
+        // Draw edit mode
         BeginMode2D(grid.GetCamera());
-
-        // Draw edit mode camera area (frozen during play mode)
-        if (editModePlayer && editModeCameraArea.width > 0 && editModeCameraArea.height > 0) {
+        if (editModeCameraArea.width > 0 && editModeCameraArea.height > 0) {
             DrawRectangleLinesEx(editModeCameraArea, 2.0f, GREEN);
             DrawRectangleRec(editModeCameraArea, Fade(GREEN, 0.1f));
         }
-
-        // Draw edit mode entities (always visible in grid view)
-        if (editModePlayer) {
-            editModePlayer->Draw();
-        }
-        for (auto& enemy : editModeEnemies) {
-            enemy->Draw();
+        for (auto& entity : editModeEntities) {
+            entity->Draw();
         }
         EndMode2D();
 
-        // Render play mode to texture if window is open
-        if (playModeWindowOpen && playModePlayer) {
+        // Draw play mode
+        if (playModeWindowOpen) {
             BeginTextureMode(playModeTexture);
             ClearBackground(BLACK);
-
             BeginMode2D(playerCamera);
-
-            // Draw the camera area background (optional)
             DrawRectangleRec(playModeCameraArea, DARKGRAY);
-
-            // Draw play mode entities (separate from edit mode)
-            if (playModePlayer) {
-                playModePlayer->Draw();
+            for (auto& entity : playModeSnapshots) {
+                entity->Draw();
             }
-            for (auto& enemy : playModeEnemies) {
-                enemy->Draw();
-            }
-
             EndMode2D();
             EndTextureMode();
         }
