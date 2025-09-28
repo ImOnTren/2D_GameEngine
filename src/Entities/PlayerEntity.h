@@ -23,4 +23,5 @@ private:
     int cellX, cellY;
     Texture2D playerTexture;
     bool textureLoaded = false;
+    float speed = 75.0f;
 };

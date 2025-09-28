@@ -22,18 +22,33 @@ bool PlayerEntity::LoadPlayerTexture(const char* path) {
 }
 
 void PlayerEntity::Update(float deltaTime) {
-    // Movement: step one cell at a time
-    // TODO: implement smooth movement
-    if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) cellX++;
-    if (IsKeyPressed(KEY_LEFT)  || IsKeyPressed(KEY_A)) cellX--;
-    if (IsKeyPressed(KEY_DOWN)  || IsKeyPressed(KEY_S)) cellY++;
-    if (IsKeyPressed(KEY_UP)    || IsKeyPressed(KEY_W)) cellY--;
+    // Smooth movement using velocity
+    Vector2 input = {0, 0};
 
-    // Clamp to positive values
-    cellX = std::max(0, cellX);
-    cellY = std::max(0, cellY);
+    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) input.x += 1;
+    if (IsKeyDown(KEY_LEFT)  || IsKeyDown(KEY_A)) input.x -= 1;
+    if (IsKeyDown(KEY_DOWN)  || IsKeyDown(KEY_S)) input.y += 1;
+    if (IsKeyDown(KEY_UP)    || IsKeyDown(KEY_W)) input.y -= 1;
 
-    PlaceOnGrid(cellX, cellY);
+    // Normalize diagonal movement
+    if (Vector2Length(input) > 0) {
+        input = Vector2Normalize(input);
+    }
+
+    // Apply velocity
+    velocity = Vector2Scale(input, speed);
+
+    // Call base Update to apply velocity to position
+    Entity::Update(deltaTime);
+
+    // Update grid coordinates based on new position
+    int tileSize = grid.GetTileSize();
+    cellX = static_cast<int>(position.x / tileSize);
+    cellY = static_cast<int>(position.y / tileSize);
+
+    // Optional: Clamp to positive values if needed
+    if (position.x < 0) position.x = 0;
+    if (position.y < 0) position.y = 0;
 }
 
 void PlayerEntity::Draw() {

@@ -11,13 +11,22 @@ void EnemyEntity::Update(float deltaTime, const PlayerEntity* player) {
     if (player) {
         Vector2 playerPos = player->GetPlayerPosition();
 
-        if (playerPos.x > position.x) cellX++;
-        if (playerPos.x < position.x) cellX--;
-        if (playerPos.y > position.y) cellY++;
-        if (playerPos.y < position.y) cellY--;
+        // Calculate direction vector towards player
+        Vector2 direction = Vector2Subtract(playerPos, position);
 
-        // Update grid position based on world position
-        PlaceOnGrid(cellX, cellY);
+        // Normalize the direction vector and apply speed
+        if (Vector2Length(direction) > 0) {
+            direction = Vector2Normalize(direction);
+            Vector2 velocity = Vector2Scale(direction, speed * deltaTime);
+
+            // Update position smoothly
+            position = Vector2Add(position, velocity);
+
+            // Update grid coordinates based on new position
+            int tileSize = grid.GetTileSize();
+            cellX = static_cast<int>(position.x / tileSize);
+            cellY = static_cast<int>(position.y / tileSize);
+        }
     }
 }
 

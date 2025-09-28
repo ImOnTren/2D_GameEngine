@@ -20,4 +20,5 @@ private:
     Grid& grid;
     int cellX, cellY;
     Color enemyColor = RED;
+    float speed = 50.0f;
 };
