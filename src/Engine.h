@@ -57,30 +57,51 @@ public:
     void UpdatePlayerCamera();
 
     bool HasPlayer() const {
-        return player != nullptr;
+        return editModePlayer != nullptr;
     }
+
     const std::vector<CameraResolution>& GetAvailableResolutions() const {
         return availableResolutions;
     }
+
     int GetSelectedResolutionIndex() const {
         return selectedResolutionIndex;
     }
+
     void SetSelectedResolutionIndex(int index) {
         if (index >= 0 && index < availableResolutions.size()) {
             selectedResolutionIndex = index;
-            UpdatePlayerCamera();
+            // Update the appropriate camera based on current mode
+            if (currentMode == Mode::PLAY) {
+                UpdatePlayModeCamera();
+            } else {
+                UpdateEditModeCamera();
+            }
         }
     }
+
+    void StartPlayMode();
+    void StopPlayMode();
 
 private:
     Grid grid;
     PlayerManager playerManager;
     EnemyManager enemyManager;
-    std::vector<std::unique_ptr<EnemyEntity>> enemies;
-    std::unique_ptr<PlayerEntity> player;
+
+    // Edit mode entities (preserved when switching to play mode)
+    std::vector<std::unique_ptr<EnemyEntity>> editModeEnemies;
+    std::unique_ptr<PlayerEntity> editModePlayer;
+
+    // Play mode entities (copies for simulation)
+    std::vector<std::unique_ptr<EnemyEntity>> playModeEnemies;
+    std::unique_ptr<PlayerEntity> playModePlayer;
+
+    // Separate camera areas for edit mode and play mode
+    Rectangle editModeCameraArea = {0, 0, 0, 0};  // Frozen during play mode
+    Rectangle playModeCameraArea = {0, 0, 0, 0};  // Updated during play mode
 
     Camera2D playerCamera;
-    Rectangle playerCameraArea = {0, 0, 0, 0}; // Area that will be visible in play mode
+    Rectangle playerCameraArea = {0, 0, 0, 0};
 
     // Input Handling
     void HandlePlayerPlacement();
@@ -89,4 +110,9 @@ private:
     void HandleEnemyRemoval();
     void HandleEditModeInput();
     bool IsMouseOverUI() const;
+
+    // methods for play mode management
+    void CopyEditToPlayMode();
+    void UpdateEditModeCamera();  // For edit mode camera area
+    void UpdatePlayModeCamera();  // For play mode camera area
 };

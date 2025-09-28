@@ -76,14 +76,12 @@ void UI::RenderModeControls(Engine& engine) {
     ImGui::Text("Engine Mode:");
 
     if (ImGui::RadioButton("Edit Mode", engine.currentMode == Engine::Mode::EDIT)) {
-        engine.currentMode = Engine::Mode::EDIT;
-        engine.playModeWindowOpen = false;
+        engine.StopPlayMode();
         engine.ResetTool();
     }
     ImGui::SameLine();
     if (ImGui::RadioButton("Play Mode", engine.currentMode == Engine::Mode::PLAY)) {
-        engine.currentMode = Engine::Mode::PLAY;
-        engine.playModeWindowOpen = true;
+        engine.StartPlayMode();
         engine.ResetTool();
     }
 
