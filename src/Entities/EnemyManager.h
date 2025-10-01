@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include "raylib.h"
+#include "Entity.h"
 
 class Grid;
 class EnemyEntity;
@@ -9,8 +10,14 @@ class EnemyEntity;
 class EnemyManager {
 public:
     EnemyManager(Grid& grid);
-    ~EnemyManager() = default;
-    bool TryPlaceEnemy(Vector2 mouseScreen, Camera2D camera, std::vector<std::unique_ptr<EnemyEntity>>& enemies);
+
+    int GetEnemyCount(const std::vector<std::unique_ptr<Entity>>& entities) const;
+
+    bool PlaceEnemy(Vector2 mouseScreen, Camera2D camera,
+                   std::vector<std::unique_ptr<Entity>>& entities);
+    bool RemoveEnemy(Vector2 mouseScreen, Camera2D camera,
+                    std::vector<std::unique_ptr<Entity>>& entities);
+
 private:
     Grid& grid;
 };

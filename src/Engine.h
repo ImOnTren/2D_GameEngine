@@ -56,9 +56,7 @@ public:
     void ResetTool() { currentTool = ToolState::NONE; }
     void UpdatePlayerCamera();
 
-    bool HasPlayer() {
-        return FindPlayerEntity() != nullptr;
-    }
+    bool HasPlayer();
 
     const std::vector<CameraResolution>& GetAvailableResolutions() const {
         return availableResolutions;
@@ -112,7 +110,6 @@ private:
     bool IsMouseOverUI() const;
 
     // Helper methods
-    PlayerEntity* FindPlayerEntity();
     void CreatePlayModeSnapshots();
     void RestoreFromSnapshots();
     void UpdatePlayModeCamera();
