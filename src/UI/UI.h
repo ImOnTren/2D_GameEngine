@@ -17,7 +17,7 @@ public:
     static void RenderPlayModeWindow(Engine& engine);
     static void RenderAssetConsole();
 
-    static void SetDebugMessage(const char* text) {
+    static void SetDebugMessage(const std::string& text) {
         DebugMessages.push_back(text);
         if (DebugMessages.size() > 20) {
             DebugMessages.erase(DebugMessages.begin());

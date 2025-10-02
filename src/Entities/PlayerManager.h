@@ -13,6 +13,7 @@ public:
 
     bool PlayerExists(const std::vector<std::unique_ptr<Entity>>& entities);
     PlayerEntity* FindPlayerEntity(const std::vector<std::unique_ptr<Entity>>& entities);
+    bool IsCellOccupied(int gridX, int gridY, const std::vector<std::unique_ptr<Entity>>& entities);
 
     bool PlacePlayer(Vector2 mouseScreen, Camera2D camera, std::vector<std::unique_ptr<Entity>>& entities);
     bool RemovePlayer(Vector2 mouseScreen, Camera2D camera, std::vector<std::unique_ptr<Entity>>& entities);

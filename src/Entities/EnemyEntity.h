@@ -7,7 +7,7 @@ class PlayerEntity;
 
 class EnemyEntity : public Entity {
 public:
-    EnemyEntity(Grid& grid, int gridX = 0, int gridY = 0); // Remove camera parameter
+    EnemyEntity(Grid& grid, int gridX = 0, int gridY = 0);
 
     void Update(float deltaTime, const PlayerEntity* player);
     void Draw();
