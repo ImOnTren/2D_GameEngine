@@ -1,9 +1,11 @@
 #include "UI.h"
 #include "Engine.h"
 
+std::vector<std::string> UI::DebugMessages = {"Welcome To Click-Craft Creator"};
+
 void UI::RenderControlPanel(Engine& engine, Grid& grid) {
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 4.0f, io.DisplaySize.y));
+    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 4.0f, io.DisplaySize.y - io.DisplaySize.y / 4.0f));
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::Begin("Control panel", NULL,
                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
@@ -12,6 +14,48 @@ void UI::RenderControlPanel(Engine& engine, Grid& grid) {
     RenderModeControls(engine);
     RenderCameraResolutionControls(engine);
 
+    ImGui::End();
+}
+
+void UI::RenderControlConsole() {
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 4.0f, io.DisplaySize.y / 4.0f));
+    ImGui::SetNextWindowPos(ImVec2(0, io.DisplaySize.y - io.DisplaySize.y / 4.0f));
+    ImGui::Begin("Debug console", NULL,
+                ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+    // Add a clear button
+    if (ImGui::Button("Clear Console")) {
+        ClearDebugMessages();
+    }
+    ImGui::SameLine();
+    ImGui::Text("Messages: %zu", DebugMessages.size());
+
+    ImGui::Separator();
+
+    // Create a child window for scrolling
+    ImGui::BeginChild("ScrollingRegion", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_HorizontalScrollbar);
+
+    // Display all messages (oldest first, newest at bottom)
+    for (const auto& message : DebugMessages) {
+        ImGui::TextWrapped("%s", message.c_str());
+    }
+
+    // Auto-scroll to bottom if new messages were added
+    if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 10.0f) {
+        ImGui::SetScrollHereY(1.0f);
+    }
+
+    ImGui::EndChild();
+    ImGui::End();
+}
+
+void UI::RenderAssetConsole() {
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x - io.DisplaySize.x / 4.0f, io.DisplaySize.y / 4.0f));
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 4.0f, io.DisplaySize.y - io.DisplaySize.y / 4.0f));
+    ImGui::Begin("Asset Console", NULL,
+                ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     ImGui::End();
 }
 

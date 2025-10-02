@@ -64,6 +64,7 @@ void Grid::Draw() {
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
     float panelWidth = screenWidth / 4.0f;
+    float panelHeight = screenHeight - (screenHeight / 4.0f);
 
     int startX, endX, startY, endY;
 
@@ -74,7 +75,7 @@ void Grid::Draw() {
         BeginMode2D(GridCamera);
 
         Vector2 topLeft = GetScreenToWorld2D({ panelWidth, 0 }, GridCamera);
-        Vector2 bottomRight = GetScreenToWorld2D({ (float)screenWidth, (float)screenHeight }, GridCamera);
+        Vector2 bottomRight = GetScreenToWorld2D({ (float)screenWidth, panelHeight }, GridCamera);
 
         startX = (int)std::ceil(topLeft.x / tileSize);
         endX = (int)(bottomRight.x / tileSize);

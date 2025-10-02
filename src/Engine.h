@@ -9,6 +9,7 @@
 #include "raylib.h"
 #include "imgui.h"
 #include "rlImGui.h"
+
 #include "Grid.h"
 #include "Entities/PlayerEntity.h"
 #include "Entities/PlayerManager.h"
@@ -20,7 +21,6 @@ class Engine {
 public:
     enum class Mode { EDIT, PLAY };
     enum class ToolState { NONE, PLACING_PLAYER, PLACING_ENEMY, REMOVING_PLAYER, REMOVING_ENEMY };
-    // Removed CAMERA_SELECTION
 
     Engine();
     ~Engine();

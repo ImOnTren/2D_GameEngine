@@ -1,6 +1,7 @@
 #include "EnemyManager.h"
 #include "Grid.h"
 #include "EnemyEntity.h"
+#include "UI/UI.h"
 
 EnemyManager::EnemyManager(Grid& grid) : grid(grid) {}
 
@@ -17,7 +18,7 @@ int EnemyManager::GetEnemyCount(const std::vector<std::unique_ptr<Entity>>& enti
 bool EnemyManager::PlaceEnemy(Vector2 mouseScreen, Camera2D camera,
                              std::vector<std::unique_ptr<Entity>>& entities) {
     if (GetEnemyCount(entities) >= 10) {
-        TraceLog(LOG_WARNING, "Maximum number of enemies reached (10). Cannot place more.");
+        UI::SetDebugMessage("[WARNING] Maximum number of enemies reached (10). Cannot place more.");
         return false;
     }
 

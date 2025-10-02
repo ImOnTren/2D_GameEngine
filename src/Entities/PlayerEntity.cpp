@@ -80,7 +80,6 @@ void PlayerEntity::Update(float deltaTime) {
     cellX = static_cast<int>(position.x / tileSize);
     cellY = static_cast<int>(position.y / tileSize);
 
-    // Optional: Clamp to positive values if needed
     if (position.x < 0) position.x = 0;
     if (position.y < 0) position.y = 0;
 }

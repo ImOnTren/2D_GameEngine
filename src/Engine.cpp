@@ -60,7 +60,7 @@ void Engine::StartPlayMode() {
     } else {
         playModeWindowOpen = false;
         currentMode = Mode::EDIT;
-        TraceLog(LOG_WARNING, "Cannot start play mode: No player placed");
+        UI::SetDebugMessage("[WARNING] Cannot start play mode: No player placed");
     }
 }
 
@@ -253,6 +253,8 @@ void Engine::Run() {
 
         rlImGuiBegin();
         UI::RenderControlPanel(*this, grid);
+        UI::RenderControlConsole();
+        UI::RenderAssetConsole();
         UI::RenderPlayModeWindow(*this);
         rlImGuiEnd();
 

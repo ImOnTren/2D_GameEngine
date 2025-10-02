@@ -1,6 +1,7 @@
 #include "PlayerManager.h"
 #include "Grid.h"
 #include "PlayerEntity.h"
+#include "UI/UI.h"
 
 PlayerManager::PlayerManager(Grid& grid) : grid(grid) {}
 
@@ -20,7 +21,7 @@ PlayerEntity* PlayerManager::FindPlayerEntity(const std::vector<std::unique_ptr<
 bool PlayerManager::PlacePlayer(Vector2 mouseScreen, Camera2D camera,
                                std::vector<std::unique_ptr<Entity>>& entities) {
     if (PlayerExists(entities)) {
-        TraceLog(LOG_WARNING, "Player already exists. Remove current player first.");
+        UI::SetDebugMessage("[WARNING] Player already exists. Remove current player first.");
         return false;
     }
 
