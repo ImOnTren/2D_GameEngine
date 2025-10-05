@@ -63,7 +63,7 @@ bool EnemyManager::RemoveEnemy(Vector2 mouseScreen, Camera2D camera,
 
             if (CheckCollisionPointRec(mouseWorld, enemyBounds)) {
                 entities.erase(it);
-                UI::SetDebugMessage("[INFO] Enemy removed");
+                UI::SetDebugMessage("[INFO] Enemy removed at (" + std::to_string(enemy->GetGridX()) + ", " + std::to_string(enemy->GetGridY()) + ")");
                 return true;
             }
         }

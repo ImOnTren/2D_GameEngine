@@ -62,7 +62,10 @@ void UI::RenderAssetConsole() {
 void UI::RenderPlayModeWindow(Engine& engine) {
     if (!engine.playModeWindowOpen) return;
 
-    ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+    auto& resolutions = engine.GetAvailableResolutions();
+    int currentIndex = engine.GetSelectedResolutionIndex();
+
+    ImGui::SetNextWindowSize(ImVec2(400, 200), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Play Mode", &engine.playModeWindowOpen, ImGuiWindowFlags_NoScrollbar)) {
         ImVec2 contentSize = ImGui::GetContentRegionAvail();
 
@@ -99,9 +102,7 @@ void UI::RenderPlayModeWindow(Engine& engine) {
             ImVec4(0, 0, 0, 0)
         );
 
-        // Display resolution info using public methods
-        auto& resolutions = engine.GetAvailableResolutions();
-        int currentIndex = engine.GetSelectedResolutionIndex();
+        // Display resolution info
         if (currentIndex >= 0 && currentIndex < resolutions.size()) {
             ImGui::Text("Resolution: %dx%d",
                        resolutions[currentIndex].width,

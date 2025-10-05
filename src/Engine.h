@@ -111,7 +111,6 @@ private:
 
     // Helper methods
     void CreatePlayModeSnapshots();
-    void RestoreFromSnapshots();
     void UpdatePlayModeCamera();
     void UpdateEditModeCamera();
 };

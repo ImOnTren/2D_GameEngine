@@ -2979,7 +2979,7 @@ static void DemoWindowWidgetsSelectionAndMultiSelect(ImGuiDemoWindowData* demo_d
         }
 
         // See ShowExampleAppAssetsBrowser()
-        if (ImGui::TreeNode("Multi-Select (tiled assets browser)"))
+        if (ImGui::TreeNode("Multi-Select (tiled player browser)"))
         {
             ImGui::Checkbox("Assets Browser", &demo_data->ShowAppAssetsBrowser);
             ImGui::Text("(also access from 'Examples->Assets Browser' in menu)");
@@ -10722,7 +10722,7 @@ struct ExampleAssetsBrowser
                             // (we could read from selection, but it is more correct and reusable to read from payload)
                             const ImGuiPayload* payload = ImGui::GetDragDropPayload();
                             const int payload_count = (int)payload->DataSize / (int)sizeof(ImGuiID);
-                            ImGui::Text("%d assets", payload_count);
+                            ImGui::Text("%d player", payload_count);
 
                             ImGui::EndDragDropSource();
                         }

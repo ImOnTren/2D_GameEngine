@@ -3,7 +3,7 @@
 PlayerEntity::PlayerEntity(Grid& g, int gridX, int gridY)
     : Entity({0,0}, {16,16}), grid(g), cellX(gridX), cellY(gridY) {
     PlaceOnGrid(gridX, gridY);
-    textureLoaded = LoadPlayerTexture("../src/assets/hugo.png");
+    textureLoaded = LoadPlayerTexture("../src/player/hugo.png");
 }
 
 PlayerEntity::PlayerEntity(const PlayerEntity& other)
