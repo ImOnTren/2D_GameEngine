@@ -65,8 +65,12 @@ void UI::RenderPlayModeWindow(Engine& engine) {
     auto& resolutions = engine.GetAvailableResolutions();
     int currentIndex = engine.GetSelectedResolutionIndex();
 
-    ImGui::SetNextWindowSize(ImVec2(400, 200), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("Play Mode", &engine.playModeWindowOpen, ImGuiWindowFlags_NoScrollbar)) {
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x - io.DisplaySize.x / 4.0f, io.DisplaySize.y - io.DisplaySize.y / 4.0f));
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 4.0f, 0));
+    std::cout << io.DisplaySize.x << " " << io.DisplaySize.y << std::endl;
+
+    if (ImGui::Begin("Play Mode", &engine.playModeWindowOpen, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
         ImVec2 contentSize = ImGui::GetContentRegionAvail();
 
         // Calculate UV coordinates to fix inversion
