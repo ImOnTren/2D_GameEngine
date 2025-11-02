@@ -12,17 +12,28 @@ Engine::Engine() : playerManager(grid), enemyManager(grid) {
     UpdatePlayerCamera();
 }
 
-Engine::~Engine() { }
+Engine::~Engine(){
+    assetManager.UnloadAllAssets();
+}
 
 void Engine::Init() {
     InitWindow(800, 400, "Game Engine - Edit Mode");
     SetWindowState(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MAXIMIZED);
-    SetTargetFPS(60);
+    SetTargetFPS(144);
     rlImGuiSetup(true);
 
     playModeTexture = LoadRenderTexture(availableResolutions[selectedResolutionIndex].width,
                                        availableResolutions[selectedResolutionIndex].height);
+
+    LoadAssets();
 }
+
+void Engine::LoadAssets()
+{
+    assetManager.LoadAsset("player_hugo", "Hugo_sprite", "Player", "../src/player/hugo.png");
+    assetManager.LoadAsset("grass_tileset", "Grass_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Tileset Grass Spring.png", 16, 16);
+}
+
 
 bool Engine::IsMouseOverUI() const {
     ImGuiIO& io = ImGui::GetIO();
@@ -45,6 +56,12 @@ void Engine::HandleEditModeInput() {
         case ToolState::REMOVING_ENEMY:
             HandleEnemyRemoval();
             break;
+        case ToolState::PLACING_TILE:
+            HandleTilePlacement();
+            break;
+        case ToolState::REMOVING_TILE:
+            HandleTileRemoval();
+            break;
         case ToolState::NONE:
             grid.Update();
             break;
@@ -54,6 +71,10 @@ void Engine::HandleEditModeInput() {
 void Engine::StartPlayMode() {
     if (playerManager.PlayerExists(editModeEntities)) {
         CreatePlayModeSnapshots();
+
+        playModeTileMap = std::make_unique<TileMap>();
+        *playModeTileMap = tileMap;
+
         playModeWindowOpen = true;
         currentMode = Mode::PLAY;
         UpdatePlayModeCamera();
@@ -68,6 +89,7 @@ void Engine::StopPlayMode() {
     playModeWindowOpen = false;
     currentMode = Mode::EDIT;
     playModeSnapshots.clear();
+    playModeTileMap.reset();
 }
 
 void Engine::CreatePlayModeSnapshots() {
@@ -116,6 +138,104 @@ void Engine::HandleEnemyRemoval() {
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 mouseScreen = GetMousePosition();
         enemyManager.RemoveEnemy(mouseScreen, grid.GetCamera(), editModeEntities);
+    }
+}
+//============================================
+//             Tile Handlers                 =
+//============================================
+void Engine::HandleTilePlacement()
+{
+    if (IsMouseOverUI()) return;
+
+    Vector2 mouseScreen = GetMousePosition();
+    Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
+
+    int tileSize = grid.GetTileSize();
+    int gridX = static_cast<int>(worldPos.x / tileSize);
+    int gridY = static_cast<int>(worldPos.y / tileSize);
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        TileData tile;
+        tile.tileID = tileToolState.tileset->id;
+        tile.tileIndex = tileToolState.selectedTileIndex;
+
+        tileMap.SetTile(gridX, gridY, tile);
+
+        UI::SetDebugMessage("[INFO] Tile placed at (" + std::to_string(gridX) + ", " + std::to_string(gridY) + ")");
+    }
+}
+
+void Engine::HandleTileRemoval()
+{
+    if (IsMouseOverUI()) return;
+
+    Vector2 mouseScreen = GetMousePosition();
+    Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
+
+    int tileSize = grid.GetTileSize();
+    int GridX = static_cast<int>(worldPos.x / tileSize);
+    int GridY = static_cast<int>(worldPos.y / tileSize);
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        if (tileMap.HasTile(GridX, GridY))
+        {
+            tileMap.RemoveTile(GridX, GridY);
+            UI::SetDebugMessage("[INFO] Tile removed at (" + std::to_string(GridX) + ", " + std::to_string(GridY) + ")");
+        }
+        else
+        {
+            UI::SetDebugMessage("[INFO] No tile to remove at (" + std::to_string(GridX) + ", " + std::to_string(GridY) + ")");
+        }
+    }
+}
+
+void Engine::DrawEditModeTiles()
+{
+    int tileSize = grid.GetTileSize();
+
+    for (const auto& [key, tileData] : tileMap.GetAllTiles()) {
+        int x = static_cast<int>(key >> 32);
+        int y = static_cast<int>(key & 0xFFFFFFFF);
+
+        Asset* asset = assetManager.GetAsset(tileData.tileID);
+        if (!asset || !asset->loaded) continue;
+
+        Rectangle sourceRect = assetManager.GetSpecificSprite(asset, tileData.tileIndex);
+        Rectangle destRect = {
+            static_cast<float>(x * tileSize),
+            static_cast<float>(y * tileSize),
+            static_cast<float>(tileSize),
+            static_cast<float>(tileSize)
+        };
+
+        DrawTexturePro(asset->texture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);
+    }
+}
+
+void Engine::DrawPlayModeTiles()
+{
+    if (!playModeTileMap) return;
+
+    int tileSize = grid.GetTileSize();
+
+    for (const auto& [key, tileData] : playModeTileMap->GetAllTiles()) {
+        int x = static_cast<int>(key >> 32);
+        int y = static_cast<int>(key & 0xFFFFFFFF);
+
+        Asset* asset = assetManager.GetAsset(tileData.tileID);
+        if (!asset || !asset->loaded) continue;
+
+        Rectangle sourceRect = assetManager.GetSpecificSprite(asset, tileData.tileIndex);
+        Rectangle destRect = {
+            static_cast<float>(x * tileSize),
+            static_cast<float>(y * tileSize),
+            static_cast<float>(tileSize),
+            static_cast<float>(tileSize)
+        };
+
+        DrawTexturePro(asset->texture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);
     }
 }
 
@@ -229,6 +349,7 @@ void Engine::Run() {
 
         // Draw edit mode
         BeginMode2D(grid.GetCamera());
+        DrawEditModeTiles();
         if (editModeCameraArea.width > 0 && editModeCameraArea.height > 0) {
             DrawRectangleLinesEx(editModeCameraArea, 2.0f, GREEN);
             DrawRectangleRec(editModeCameraArea, Fade(GREEN, 0.1f));
@@ -243,7 +364,7 @@ void Engine::Run() {
             BeginTextureMode(playModeTexture);
             ClearBackground(BLACK);
             BeginMode2D(playerCamera);
-            DrawRectangleRec(playModeCameraArea, DARKGRAY);
+            DrawPlayModeTiles();
             for (auto& entity : playModeSnapshots) {
                 entity->Draw();
             }
@@ -253,8 +374,8 @@ void Engine::Run() {
 
         rlImGuiBegin();
         UI::RenderControlPanel(*this, grid);
-        UI::RenderControlConsole();
-        UI::RenderAssetConsole();
+        UI::RenderDebugConsole();
+        UI::RenderAssetConsole(*this);
         UI::RenderPlayModeWindow(*this);
         rlImGuiEnd();
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 4.0)
 project(2D_GameEngine)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 find_package(raylib CONFIG REQUIRED)
 
@@ -26,14 +26,14 @@ add_executable(2D_GameEngine
         src/dependencies/include/rlImGuiColors.h
         src/Entities/EnemyEntity.cpp
         src/Entities/EnemyEntity.h
-        src/Entities/EnemyManager.cpp
-        src/Entities/EnemyManager.h
+        src/Managers/EnemyManager.cpp
+        src/Managers/EnemyManager.h
         src/Entities/Entity.cpp
         src/Entities/Entity.h
         src/Entities/PlayerEntity.cpp
         src/Entities/PlayerEntity.h
-        src/Entities/PlayerManager.cpp
-        src/Entities/PlayerManager.h
+        src/Managers/PlayerManager.cpp
+        src/Managers/PlayerManager.h
         src/imgui/imgui.cpp
         src/imgui/imgui_demo.cpp
         src/imgui/imgui_draw.cpp
@@ -47,6 +47,10 @@ add_executable(2D_GameEngine
         src/main.cpp
         src/UI/UI.cpp
         src/UI/UI.h
+        src/Managers/AssetManager.cpp
+        src/Managers/AssetManager.h
+        src/Entities/TileMap.cpp
+        src/Entities/TileMap.h
 )
 
 target_link_libraries(2D_GameEngine PRIVATE raylib)

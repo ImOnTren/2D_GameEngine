@@ -16,14 +16,9 @@ public:
 
     void Update();
     void Draw();
-    void RenderSizeAvailability();
 
     int GetTileSize() const {
-        switch (selectedTileSizeIndex) {
-            case 0: return 32;
-            case 1: return 64;
-            default: return 32;
-        }
+        return 32;
     }
 
     Camera2D GetCamera() const {
@@ -37,7 +32,6 @@ private:
     Color highlightColor = { 255, 255, 0, 80 };
 
     std::vector<std::string> tileSize = { "32x32", "64x64" };
-    int selectedTileSizeIndex = 0;
 
     RenderTexture2D gridTexture;
     bool needsRedraw = true;

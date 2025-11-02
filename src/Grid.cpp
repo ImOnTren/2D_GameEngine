@@ -11,16 +11,6 @@ Grid::~Grid() {
     if (initialized) UnloadRenderTexture(gridTexture);
 }
 
-void Grid::RenderSizeAvailability() {
-    for (int i = 0; i < tileSize.size(); i++) {
-        ImGui::SameLine();
-        if (ImGui::RadioButton(tileSize[i].c_str(), selectedTileSizeIndex == i)) {
-            selectedTileSizeIndex = i;
-            needsRedraw = true;
-        }
-    }
-}
-
 void Grid::Update() {
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
@@ -123,7 +113,7 @@ void Grid::Draw() {
 
     // --- Highlight hovered cell only if inside grid bounds ---
     Vector2 mouseScreen = GetMousePosition();
-    if (mouseScreen.x > panelWidth) {
+    if (mouseScreen.x > panelWidth && mouseScreen.y < panelHeight) {
         Vector2 mouseWorld = GetScreenToWorld2D(mouseScreen, GridCamera);
         int cellX = (int)(mouseWorld.x / tileSize);
         int cellY = (int)(mouseWorld.y / tileSize);

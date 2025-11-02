@@ -1,4 +1,3 @@
-// Engine.h (updated)
 #pragma once
 
 #include <string>
@@ -12,15 +11,17 @@
 
 #include "Grid.h"
 #include "Entities/PlayerEntity.h"
-#include "Entities/PlayerManager.h"
+#include "Managers/PlayerManager.h"
 #include "Entities/EnemyEntity.h"
-#include "Entities/EnemyManager.h"
+#include "Managers/EnemyManager.h"
 #include "UI/UI.h"
+#include "Managers/AssetManager.h"
+#include "Entities/TileMap.h"
 
 class Engine {
 public:
     enum class Mode { EDIT, PLAY };
-    enum class ToolState { NONE, PLACING_PLAYER, PLACING_ENEMY, REMOVING_PLAYER, REMOVING_ENEMY };
+    enum class ToolState { NONE, PLACING_PLAYER, PLACING_ENEMY, REMOVING_PLAYER, REMOVING_ENEMY, PLACING_TILE, REMOVING_TILE };
 
     Engine();
     ~Engine();
@@ -40,6 +41,12 @@ public:
         int height;
         const char* name;
     };
+
+    struct {
+        Asset* tileset = nullptr;
+        int selectedTileIndex = -1;
+        bool isPlacingTile = false;
+    } tileToolState;
 
     std::vector<CameraResolution> availableResolutions = {
         {640, 360, "640x360 (16:9)"},
@@ -69,7 +76,7 @@ public:
     void SetSelectedResolutionIndex(int index) {
         if (index >= 0 && index < availableResolutions.size()) {
             selectedResolutionIndex = index;
-            // Update the appropriate camera based on current mode
+            // Update the appropriate camera based on the current mode
             if (currentMode == Mode::PLAY) {
                 UpdatePlayModeCamera();
             } else {
@@ -80,6 +87,10 @@ public:
 
     int GetEnemyCount() const;
 
+    AssetManager& GetAssetManager(){
+        return assetManager;
+    }
+
     void StartPlayMode();
     void StopPlayMode();
 
@@ -87,6 +98,9 @@ private:
     Grid grid;
     PlayerManager playerManager;
     EnemyManager enemyManager;
+    AssetManager assetManager;
+    std::unique_ptr<TileMap> playModeTileMap;
+    TileMap tileMap;
 
     // Single source of truth - edit mode entities
     std::vector<std::unique_ptr<Entity>> editModeEntities;
@@ -106,6 +120,10 @@ private:
     void HandlePlayerRemoval();
     void HandleEnemyPlacement();
     void HandleEnemyRemoval();
+    void HandleTilePlacement();
+    void HandleTileRemoval();
+    void DrawEditModeTiles();
+    void DrawPlayModeTiles();
     void HandleEditModeInput();
     bool IsMouseOverUI() const;
 
@@ -113,4 +131,5 @@ private:
     void CreatePlayModeSnapshots();
     void UpdatePlayModeCamera();
     void UpdateEditModeCamera();
+    void LoadAssets();
 };

@@ -2,10 +2,13 @@
 
 #include <string>
 #include <vector>
+#include <format>
+#include <iostream>
 
 #include "raylib.h"
 #include "imgui.h"
 #include "rlImGui.h"
+#include "Managers/AssetManager.h"
 
 class Engine;
 class Grid;
@@ -13,9 +16,10 @@ class Grid;
 class UI {
 public:
     static void RenderControlPanel(Engine& engine, Grid& grid);
-    static void RenderControlConsole();
+    static void RenderDebugConsole();
+    static void RenderAssetConsole(Engine& engine);
     static void RenderPlayModeWindow(Engine& engine);
-    static void RenderAssetConsole();
+    static std::string GetAssetTypeName(AssetType type);
 
     static void SetDebugMessage(const std::string& text) {
         DebugMessages.push_back(text);
@@ -33,6 +37,29 @@ public:
 private:
     static void RenderModeControls(Engine& engine);
     static void RenderCameraResolutionControls(Engine& engine);
-    static void RenderGridSizeControls(Grid& grid);
+    static void RenderAssetFilters(AssetManager& assetManager, std::vector<std::string>& categories);
+    static void RenderCategoryList(std::vector<std::string>& categories, std::vector<Asset*>& allAssets);
+    static void RenderAssetGrid(AssetManager& assetManager, std::vector<Asset*>& allAssets);
+    static void RenderAssetThumbnail(Asset* asset);
+    static void RenderAssetDetails(Asset* asset, AssetManager& assetManager);
+    static void RenderTilesetPreview(Asset* asset);
+    static void RenderTileSelectionWindow(Engine& engine, Asset* tileset);
+    static void RenderTilesetGrid(Asset* tileset);
     static std::vector<std::string> DebugMessages;
+
+    static std::string selectedCategory;
+    static std::string searchFilter;
+    static AssetType typeFilter;
+    static Asset* selectedAsset;
+    static int thumbnailSize;
+    static bool showTilesetPreview;
+    static char searchBuffer[256];
+
+    static bool showTileSelectionWindow;
+    static Asset* selectedTileset;
+    static int selectedTileIndex;
+    static Vector2 selectedTileCoords;
+    static int tilesetTileWidth;
+    static int tilesetTileHeight;
+
 };

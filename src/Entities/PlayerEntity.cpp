@@ -9,7 +9,7 @@ PlayerEntity::PlayerEntity(Grid& g, int gridX, int gridY)
 PlayerEntity::PlayerEntity(const PlayerEntity& other)
     : Entity(other), grid(other.grid), cellX(other.cellX), cellY(other.cellY),
       textureLoaded(other.textureLoaded), speed(other.speed) {
-    // Note: We don't copy the texture, we share it
+    // We don't copy the texture, we share it
     if (textureLoaded) {
         playerTexture = other.playerTexture; // This is a handle copy, not deep copy
     }

@@ -2,7 +2,7 @@
 #include <memory>
 #include <vector>
 #include "raylib.h"
-#include "Entity.h"
+#include "../Entities/Entity.h"
 
 
 class Grid;

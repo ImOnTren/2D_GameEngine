@@ -1,7 +1,7 @@
 #include "PlayerManager.h"
-#include "EnemyEntity.h"
+#include "../Entities/EnemyEntity.h"
 #include "Grid.h"
-#include "PlayerEntity.h"
+#include "../Entities/PlayerEntity.h"
 #include "UI/UI.h"
 
 PlayerManager::PlayerManager(Grid& grid) : grid(grid) {}
