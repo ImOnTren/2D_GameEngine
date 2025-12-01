@@ -332,7 +332,7 @@ void UI::RenderAssetDetails(Asset* asset, AssetManager& assetManager) {
     } else {
         if (ImGui::Button("Use Asset", ImVec2(120, 30))) {
             SetDebugMessage("[ASSET] Ready to place: " + asset->name);
-            // For non-tileset assets, you might want different behavior
+            // For non-tileset assets
         }
     }
 
@@ -583,7 +583,7 @@ void UI::RenderPlayModeWindow(Engine& engine) {
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x - io.DisplaySize.x / 4.0f, io.DisplaySize.y - io.DisplaySize.y / 4.0f));
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 4.0f, 0));
-    std::cout << io.DisplaySize.x << " " << io.DisplaySize.y << std::endl;
+    //std::cout << io.DisplaySize.x << " " << io.DisplaySize.y << std::endl;
 
     if (ImGui::Begin("Play Mode", &engine.playModeWindowOpen, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
         ImVec2 contentSize = ImGui::GetContentRegionAvail();
@@ -595,22 +595,29 @@ void UI::RenderPlayModeWindow(Engine& engine) {
         ImVec2 uv1 = ImVec2(1, 0);
 
         // Maintain aspect ratio
-        float textureAspect = (float)engine.playModeTexture.texture.width / (float)engine.playModeTexture.texture.height;
-        float windowAspect = contentSize.x / contentSize.y;
+        float texW = (float)engine.playModeTexture.texture.width;
+        float texH = (float)engine.playModeTexture.texture.height;
+
+        // Compute the maximum integer scale that fits in the window
+        float scaleX = std::floor(contentSize.x / texW);
+        float scaleY = std::floor(contentSize.y / texH);
+        float scale = std::max(1.0f, std::min(scaleX, scaleY));
 
         ImVec2 displaySize;
-        if (textureAspect > windowAspect) {
-            displaySize.x = contentSize.x;
-            displaySize.y = contentSize.x / textureAspect;
-        } else {
-            displaySize.y = contentSize.y;
-            displaySize.x = contentSize.y * textureAspect;
-        }
+        displaySize.x = texW * scale;
+        displaySize.y = texH * scale;
 
         // Center the image
         ImVec2 pos = ImGui::GetCursorPos();
         pos.x += (contentSize.x - displaySize.x) * 0.5f;
         pos.y += (contentSize.y - displaySize.y) * 0.5f;
+
+        // Snap to integer pixels
+        pos.x = std::floor(pos.x);
+        pos.y = std::floor(pos.y);
+        displaySize.x = std::floor(displaySize.x);
+        displaySize.y = std::floor(displaySize.y);
+
         ImGui::SetCursorPos(pos);
 
         // Display the texture

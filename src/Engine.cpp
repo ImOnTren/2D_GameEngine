@@ -32,6 +32,9 @@ void Engine::LoadAssets()
 {
     assetManager.LoadAsset("player_hugo", "Hugo_sprite", "Player", "../src/player/hugo.png");
     assetManager.LoadAsset("grass_tileset", "Grass_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Tileset Grass Spring.png", 16, 16);
+    assetManager.LoadAsset("winter_tileset", "Winter_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Tileset Grass Winter.png", 16, 16);
+    assetManager.LoadAsset("water_tileset", "Water_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
+    assetManager.LoadAsset("caves_tileset", "Caves_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Caves.png", 16, 16);
 }
 
 
@@ -234,7 +237,7 @@ void Engine::DrawPlayModeTiles()
             static_cast<float>(tileSize),
             static_cast<float>(tileSize)
         };
-
+        //DrawTextureRec(asset->texture, destRect, {0, 0}, WHITE);
         DrawTexturePro(asset->texture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);
     }
 }
@@ -294,6 +297,10 @@ void Engine::UpdatePlayModeCamera() {
         playerPos.y + playerSize.y / 2.0f
     };
 
+    // Snap camera target to whole pixels for pixel-perfect rendering
+    playerCenter.x = std::round(playerCenter.x);
+    playerCenter.y = std::round(playerCenter.y);
+
     playModeCameraArea = {
         playerCenter.x - width / 2.0f,
         playerCenter.y - height / 2.0f,
@@ -311,6 +318,9 @@ void Engine::UpdatePlayModeCamera() {
             UnloadRenderTexture(playModeTexture);
         }
         playModeTexture = LoadRenderTexture(width, height);
+
+        // Pixel-perfect for the play-mode render texture
+        SetTextureFilter(playModeTexture.texture, TEXTURE_FILTER_POINT);
     }
 }
 
@@ -348,16 +358,18 @@ void Engine::Run() {
         grid.Draw();
 
         // Draw edit mode
-        BeginMode2D(grid.GetCamera());
-        DrawEditModeTiles();
-        if (editModeCameraArea.width > 0 && editModeCameraArea.height > 0) {
-            DrawRectangleLinesEx(editModeCameraArea, 2.0f, GREEN);
-            DrawRectangleRec(editModeCameraArea, Fade(GREEN, 0.1f));
+        if (currentMode != Mode::PLAY){
+            BeginMode2D(grid.GetCamera());
+            DrawEditModeTiles();
+            if (editModeCameraArea.width > 0 && editModeCameraArea.height > 0) {
+                DrawRectangleLinesEx(editModeCameraArea, 2.0f, GREEN);
+                DrawRectangleRec(editModeCameraArea, Fade(GREEN, 0.1f));
+            }
+            for (auto& entity : editModeEntities) {
+                entity->Draw();
+            }
+            EndMode2D();
         }
-        for (auto& entity : editModeEntities) {
-            entity->Draw();
-        }
-        EndMode2D();
 
         // Draw play mode
         if (playModeWindowOpen) {

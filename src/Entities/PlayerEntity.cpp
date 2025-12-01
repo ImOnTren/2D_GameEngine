@@ -49,6 +49,11 @@ void PlayerEntity::RestoreFromSnapshot(const Entity* snapshot) {
 bool PlayerEntity::LoadPlayerTexture(const char* path) {
     if (FileExists(path)) {
         playerTexture = LoadTexture(path);
+
+        // Make the player sprite pixel-perfect TODO: Change this so AssetManager handles this part
+        SetTextureFilter(playerTexture, TEXTURE_FILTER_POINT);
+        SetTextureWrap(playerTexture, TEXTURE_WRAP_CLAMP);
+
         return true;
     }
     TraceLog(LOG_WARNING, "Failed to load player texture: '%s'", path);
@@ -85,11 +90,24 @@ void PlayerEntity::Update(float deltaTime) {
 }
 
 void PlayerEntity::Draw() {
+    if (!active) return;
+
+    Vector2 drawPos = position;
+
+    // snap the player’s render position to whole pixels
+    drawPos.x = std::round(drawPos.x);
+    drawPos.y = std::round(drawPos.y);
+
     if (textureLoaded) {
-        DrawTextureV(playerTexture, position, WHITE);
-    }
-    else {
-        DrawRectangleV(position, size, BLUE);
+        Rectangle dest = { drawPos.x, drawPos.y, size.x, size.y };
+        DrawTexturePro(playerTexture,
+                       { 0, 0, (float)playerTexture.width, (float)playerTexture.height },
+                       dest,
+                       { 0, 0 },
+                       0.0f,
+                       WHITE);
+    } else {
+        DrawRectangleRec({ drawPos.x, drawPos.y, size.x, size.y }, BLUE);
     }
 }
 

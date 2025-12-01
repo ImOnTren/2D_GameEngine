@@ -17,6 +17,12 @@ void AssetManager::LoadTextureForAsset(Asset* asset) {
     {
         asset->texture = LoadTexture(asset->path.c_str());
         asset->loaded = true;
+
+        // pixel-perfect sampling for tiles/sprites
+        SetTextureFilter(asset->texture, TEXTURE_FILTER_POINT);
+        // avoid wrapping at edges
+        SetTextureWrap(asset->texture, TEXTURE_WRAP_CLAMP);
+
     }
     else
     {
@@ -85,6 +91,9 @@ void AssetManager::ProcessTileset(Asset* asset, int tileHeight, int tileWidth){
         return;
     }
 
+    //Small inset to avoid sampling outside tile borders
+    const float eps = 0.01f;
+
     int columns = asset->texture.width / tileWidth;
     int rows = asset->texture.height / tileHeight;
 
@@ -94,10 +103,10 @@ void AssetManager::ProcessTileset(Asset* asset, int tileHeight, int tileWidth){
         for (int x = 0; x < columns; ++x)
         {
             Rectangle rect;
-            rect.x = static_cast<float>(x * tileWidth);
-            rect.y = static_cast<float>(y * tileHeight);
-            rect.width = static_cast<float>(tileWidth);
-            rect.height = static_cast<float>(tileHeight);
+            rect.x      = static_cast<float>(x * tileWidth);
+            rect.y      = static_cast<float>(y * tileHeight);
+            rect.width  = static_cast<float>(tileWidth) - 2.0f * eps;
+            rect.height = static_cast<float>(tileHeight) - 2.0f * eps;
             asset->subSprites.push_back(rect);
         }
     }
@@ -119,7 +128,7 @@ Rectangle AssetManager::GetSpecificSprite(const Asset* asset, const int& index){
         return asset->SpriteSourceRect;
     }
 
-    if (index >= 0 && index < static_cast<int>(asset->subSprites.size()))
+    if (index < static_cast<int>(asset->subSprites.size()))
     {
         return asset->subSprites[index];
     }

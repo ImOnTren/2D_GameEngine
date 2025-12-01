@@ -19,6 +19,10 @@ void Grid::Update() {
 
     if (!initialized) {
         gridTexture = LoadRenderTexture(screenWidth, screenHeight);
+
+        // Pixel-perfect position for the grid (avoid floating pixels)
+        SetTextureFilter(gridTexture.texture, TEXTURE_FILTER_POINT);
+
         initialized = true;
         needsRedraw = true;
     }

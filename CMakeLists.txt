@@ -3,6 +3,14 @@ project(2D_GameEngine)
 
 set(CMAKE_CXX_STANDARD 17)
 
+include(FetchContent)
+FetchContent_Declare(
+        nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.12.0
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 find_package(raylib CONFIG REQUIRED)
 
 include_directories(
@@ -51,6 +59,8 @@ add_executable(2D_GameEngine
         src/Managers/AssetManager.h
         src/Entities/TileMap.cpp
         src/Entities/TileMap.h
+        src/Managers/SceneManager.cpp
+        src/Managers/SceneManager.h
 )
 
-target_link_libraries(2D_GameEngine PRIVATE raylib)
+target_link_libraries(2D_GameEngine PRIVATE raylib nlohmann_json::nlohmann_json)
