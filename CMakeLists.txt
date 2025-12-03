@@ -59,8 +59,8 @@ add_executable(2D_GameEngine
         src/Managers/AssetManager.h
         src/Entities/TileMap.cpp
         src/Entities/TileMap.h
-        src/Managers/SceneManager.cpp
-        src/Managers/SceneManager.h
+        src/Scene/Scene.cpp
+        src/Scene/Scene.h
 )
 
 target_link_libraries(2D_GameEngine PRIVATE raylib nlohmann_json::nlohmann_json)

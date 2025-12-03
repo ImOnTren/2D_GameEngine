@@ -17,6 +17,7 @@
 #include "UI/UI.h"
 #include "Managers/AssetManager.h"
 #include "Entities/TileMap.h"
+#include "Scene/Scene.h"
 
 class Engine {
 public:
@@ -91,6 +92,64 @@ public:
         return assetManager;
     }
 
+// Scene management API (you implement these in Engine)
+    std::unordered_map<std::string, std::unique_ptr<Scene>>& GetAllScenes() {
+        return scenes;
+    }
+    Scene* GetCurrentScene() {
+        if (scenes.find(currentSceneID) != scenes.end()) {
+            return scenes[currentSceneID].get();
+        }
+        return nullptr;
+    }
+    void SetCurrentScene(const std::string& sceneID) {
+        if (scenes.find(sceneID) != scenes.end()) {
+            currentSceneID = sceneID;
+        }
+    }
+    int GetSceneCount() const {
+        return scenes.size();
+    }
+    int GetCurrentSceneIndex() const {
+        int index = 0;
+        for (const auto& pair : scenes) {
+            if (pair.first == currentSceneID) {
+                return index;
+            }
+            ++index;
+        }
+        return -1; // Not found
+    }
+    void SetCurrentSceneIndex(int index) {
+        if (index >= 0 && index < scenes.size()) {
+            auto it = scenes.begin();
+            std::advance(it, index);
+            currentSceneID = it->first;
+        }
+    }
+    std::string GetSceneName(int index) const {
+        if (index >= 0 && index < scenes.size()) {
+            auto it = scenes.begin();
+            std::advance(it, index);
+            return it->second->GetName();
+        }
+        return "";
+    }
+    void RenameScene(int index, const std::string& newName) {
+        if (index >= 0 && index < scenes.size()) {
+            auto it = scenes.begin();
+            std::advance(it, index);
+            it->second->SetName(newName);
+        }
+    }
+    void CreateNewScene() {
+        HandleSceneCreation();
+    }
+    void DeleteScene(const int& index) {
+        const int& sceneIndex = index;
+        HandleSceneDeletion(sceneIndex);
+    }
+
     void StartPlayMode();
     void StopPlayMode();
 
@@ -101,6 +160,9 @@ private:
     AssetManager assetManager;
     std::unique_ptr<TileMap> playModeTileMap;
     TileMap tileMap;
+    std::unordered_map<std::string, std::unique_ptr<Scene>> scenes;
+    std::string currentSceneID;
+    int nextSceneId = 1;
 
     // Single source of truth - edit mode entities
     std::vector<std::unique_ptr<Entity>> editModeEntities;
@@ -122,6 +184,8 @@ private:
     void HandleEnemyRemoval();
     void HandleTilePlacement();
     void HandleTileRemoval();
+    void HandleSceneCreation();
+    void HandleSceneDeletion(const int& index);
     void DrawEditModeTiles();
     void DrawPlayModeTiles();
     void HandleEditModeInput();

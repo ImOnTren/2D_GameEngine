@@ -14,7 +14,7 @@ Grid::~Grid() {
 void Grid::Update() {
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
-    float panelWidth = screenWidth / 4.0f;
+    float panelWidth = static_cast<float>(screenWidth) / 4.0f;
     GridCamera.offset = { panelWidth, 0 };
 
     if (!initialized) {
@@ -57,8 +57,9 @@ void Grid::Draw() {
 
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
-    float panelWidth = screenWidth / 4.0f;
-    float panelHeight = screenHeight - (screenHeight / 4.0f);
+    float panelWidth = static_cast<float>(screenWidth) / 4.0f;
+    float panelHeight = static_cast<float>(screenHeight) - (static_cast<float>(screenHeight) / 4.0f);
+    float sceneTabHeight = static_cast<float>(screenHeight) / 18.0f;
 
     int startX, endX, startY, endY;
 
@@ -68,13 +69,13 @@ void Grid::Draw() {
 
         BeginMode2D(GridCamera);
 
-        Vector2 topLeft = GetScreenToWorld2D({ panelWidth, 0 }, GridCamera);
+        Vector2 topLeft = GetScreenToWorld2D({ panelWidth, sceneTabHeight }, GridCamera);
         Vector2 bottomRight = GetScreenToWorld2D({ (float)screenWidth, panelHeight }, GridCamera);
 
-        startX = (int)std::ceil(topLeft.x / tileSize);
-        endX = (int)(bottomRight.x / tileSize);
-        startY = (int)(topLeft.y / tileSize);
-        endY = (int)(bottomRight.y / tileSize);
+        startX = (int)std::ceil(topLeft.x / static_cast<float>(tileSize));
+        endX = (int)(bottomRight.x / static_cast<float>(tileSize));
+        startY = (int)std::ceil(topLeft.y / static_cast<float>(tileSize));
+        endY = (int)(bottomRight.y / static_cast<float>(tileSize));
 
         if (startX < 0) startX = 0;
         if (startY < 0) startY = 0;
@@ -92,13 +93,13 @@ void Grid::Draw() {
         needsRedraw = false;
     } else {
         // Calculate grid bounds for highlight check
-        Vector2 topLeft = GetScreenToWorld2D({ panelWidth, 0 }, GridCamera);
+        Vector2 topLeft = GetScreenToWorld2D({ panelWidth, sceneTabHeight }, GridCamera);
         Vector2 bottomRight = GetScreenToWorld2D({ (float)screenWidth, (float)screenHeight }, GridCamera);
 
-        startX = (int)std::ceil(topLeft.x / tileSize);
-        endX = (int)(bottomRight.x / tileSize);
-        startY = (int)(topLeft.y / tileSize);
-        endY = (int)(bottomRight.y / tileSize);
+        startX = (int)std::ceil(topLeft.x / static_cast<float>(tileSize));
+        endX = (int)(bottomRight.x / static_cast<float>(tileSize));
+        startY = (int)std::ceil(topLeft.y / static_cast<float>(tileSize));
+        endY = (int)(bottomRight.y / static_cast<float>(tileSize));
 
         if (startX < 0) startX = 0;
         if (startY < 0) startY = 0;
@@ -119,8 +120,8 @@ void Grid::Draw() {
     Vector2 mouseScreen = GetMousePosition();
     if (mouseScreen.x > panelWidth && mouseScreen.y < panelHeight) {
         Vector2 mouseWorld = GetScreenToWorld2D(mouseScreen, GridCamera);
-        int cellX = (int)(mouseWorld.x / tileSize);
-        int cellY = (int)(mouseWorld.y / tileSize);
+        int cellX = (int)(mouseWorld.x / static_cast<float>(tileSize));
+        int cellY = (int)(mouseWorld.y / static_cast<float>(tileSize));
 
         if (cellX >= startX && cellX <= endX && cellY >= startY && cellY <= endY) {
             int cellScreenX = cellX * tileSize;

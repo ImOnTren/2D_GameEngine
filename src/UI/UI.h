@@ -19,6 +19,7 @@ public:
     static void RenderDebugConsole();
     static void RenderAssetConsole(Engine& engine);
     static void RenderPlayModeWindow(Engine& engine);
+    static void RenderNewSceneTab(Engine& engine);
     static std::string GetAssetTypeName(AssetType type);
 
     static void SetDebugMessage(const std::string& text) {

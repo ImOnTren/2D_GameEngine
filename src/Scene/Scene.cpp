@@ -1,4 +1,4 @@
-#include "SceneManager.h"
+#include "Scene.h"
 #include "Entities/TileMap.h"
 #include "Entities/PlayerEntity.h"
 #include "Entities/Entity.h"

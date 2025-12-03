@@ -1,13 +1,11 @@
 #include "UI.h"
-
 #include <algorithm>
-
 #include "Engine.h"
 
 std::vector<std::string> UI::DebugMessages = {"Welcome To Click-Craft Creator"};
 
 std::string UI::selectedCategory = "All";
-std::string UI::searchFilter = "";
+std::string UI::searchFilter;
 AssetType UI::typeFilter = AssetType::OTHER;
 Asset* UI::selectedAsset = nullptr;
 int UI::thumbnailSize = 80;
@@ -750,4 +748,77 @@ void UI::RenderCameraResolutionControls(Engine& engine) {
 
         ImGui::Text("Aspect Ratio: %s", aspectName);
     }
+}
+
+void UI::RenderNewSceneTab(Engine& engine) {
+    ImGuiIO& io = ImGui::GetIO();
+
+    ImGui::SetNextWindowSize(
+        ImVec2(io.DisplaySize.x - io.DisplaySize.x / 4.0f,
+               io.DisplaySize.y / 18.0f));
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 4.0f, 0));
+
+    ImGui::Begin("Scenes", nullptr,
+                 ImGuiWindowFlags_NoMove
+                 | ImGuiWindowFlags_NoResize);
+
+    const int sceneCount        = engine.GetSceneCount();
+    int       currentSceneIndex = engine.GetCurrentSceneIndex();
+
+    // "+" button to create new scene
+    if (ImGui::Button("+", ImVec2(30.0f,
+                                  ImGui::GetContentRegionAvail().y))) {
+        engine.CreateNewScene();
+        SetDebugMessage("[SCENE] Created new scene");
+    }
+
+    ImGui::SameLine();
+
+    // One tab per scene
+    for (int i = 0; i < sceneCount; ++i) {
+        ImGui::PushID(i);
+
+        std::string sceneName = engine.GetSceneName(i);
+        bool isActive = (i == currentSceneIndex);
+        bool deleteThis = false;
+
+        // Highlight active scene
+        if (isActive) {
+            ImGui::PushStyleColor(ImGuiCol_Button,         ImVec4(0.2f, 0.2f, 0.9f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(0.3f, 0.3f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(0.1f, 0.1f, 0.7f, 1.0f));
+        }
+
+        ImVec2 tabSize(120.0f, ImGui::GetContentRegionAvail().y);
+        if (ImGui::Button(sceneName.c_str(), tabSize)) {
+            engine.SetCurrentSceneIndex(i);
+            currentSceneIndex = i;
+            SetDebugMessage("[SCENE] Switched to scene: " + sceneName);
+        }
+
+        // Pop style colors if we pushed them
+        if (isActive) {
+            ImGui::PopStyleColor(3);
+        }
+
+        // Small "x" delete button (only if more than one scene)
+        if (sceneCount > 1) {
+            ImGui::SameLine(0.0f, 2.0f);
+            if (ImGui::SmallButton("x")) {
+                deleteThis = true;
+            }
+        }
+
+        ImGui::SameLine();
+        ImGui::PopID();
+
+        // Handle deletion *after* all pushes/pops are balanced
+        if (deleteThis) {
+            engine.DeleteScene(i);
+            SetDebugMessage("[SCENE] Deleted scene: " + sceneName);
+            break;  // scene list changed; exit the loop safely
+        }
+    }
+
+    ImGui::End();
 }

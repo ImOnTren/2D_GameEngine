@@ -10,6 +10,7 @@ Engine::Engine() : playerManager(grid), enemyManager(grid) {
     playModeTexture = {0};
     playModeWindowOpen = false;
     UpdatePlayerCamera();
+    HandleSceneCreation();
 }
 
 Engine::~Engine(){
@@ -241,6 +242,32 @@ void Engine::DrawPlayModeTiles()
         DrawTexturePro(asset->texture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);
     }
 }
+//===============================================
+//               Scene Management               =
+//===============================================
+void Engine::HandleSceneCreation() {
+    std::string sceneID = "scene_" + std::to_string(nextSceneId++);
+    std::string displayName = "Scene " + std::to_string(nextSceneId - 1);
+
+    auto newScene = std::make_unique<Scene>(sceneID, displayName);
+    scenes.emplace(sceneID, std::move(newScene));
+
+    currentSceneID = sceneID;
+}
+
+void Engine::HandleSceneDeletion(const int& index) {
+    if (scenes.size() <= 1) {
+        UI::SetDebugMessage("[WARNING] Cannot delete the last scene");
+        return;
+    }
+
+    auto it = scenes.begin();
+    std::advance(it, index);
+    if (it->first == currentSceneID) {
+        currentSceneID = scenes.begin()->first;
+    }
+    scenes.erase(it);
+}
 
 // =======================================
 // =            Camera Logic            =
@@ -389,6 +416,7 @@ void Engine::Run() {
         UI::RenderDebugConsole();
         UI::RenderAssetConsole(*this);
         UI::RenderPlayModeWindow(*this);
+        UI::RenderNewSceneTab(*this);
         rlImGuiEnd();
 
         EndDrawing();
