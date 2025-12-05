@@ -775,7 +775,7 @@ void UI::RenderNewSceneTab(Engine& engine) {
     ImGui::SameLine();
 
     // One tab per scene
-    for (int i = 0; i < sceneCount; ++i) {
+    for (int i = 0; i < sceneCount; i++) {
         ImGui::PushID(i);
 
         std::string sceneName = engine.GetSceneName(i);

@@ -86,7 +86,7 @@ public:
         }
     }
 
-    int GetEnemyCount() const;
+    int GetEnemyCount();
 
     AssetManager& GetAssetManager(){
         return assetManager;
@@ -135,6 +135,10 @@ public:
         }
         return "";
     }
+    Rectangle GetSceneCameraArea()
+    {
+        return GetCurrentScene()->GetEditModeCameraArea();
+    }
     void RenameScene(int index, const std::string& newName) {
         if (index >= 0 && index < scenes.size()) {
             auto it = scenes.begin();
@@ -159,20 +163,9 @@ private:
     EnemyManager enemyManager;
     AssetManager assetManager;
     std::unique_ptr<TileMap> playModeTileMap;
-    TileMap tileMap;
     std::unordered_map<std::string, std::unique_ptr<Scene>> scenes;
     std::string currentSceneID;
     int nextSceneId = 1;
-
-    // Single source of truth - edit mode entities
-    std::vector<std::unique_ptr<Entity>> editModeEntities;
-
-    // Play mode uses snapshots - much more memory efficient
-    std::vector<std::unique_ptr<Entity>> playModeSnapshots;
-
-    // Separate camera areas for edit mode and play mode
-    Rectangle editModeCameraArea = {0, 0, 0, 0};  // Frozen during play mode
-    Rectangle playModeCameraArea = {0, 0, 0, 0};  // Updated during play mode
 
     Camera2D playerCamera;
     Rectangle playerCameraArea = {0, 0, 0, 0};

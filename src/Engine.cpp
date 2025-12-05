@@ -9,8 +9,8 @@ Engine::Engine() : playerManager(grid), enemyManager(grid) {
     playerCamera.zoom = 1.0f;
     playModeTexture = {0};
     playModeWindowOpen = false;
-    UpdatePlayerCamera();
     HandleSceneCreation();
+    UpdatePlayerCamera();
 }
 
 Engine::~Engine(){
@@ -71,8 +71,10 @@ void Engine::HandleEditModeInput() {
             break;
     }
 }
-
 void Engine::StartPlayMode() {
+    Scene* scene = GetCurrentScene();
+    TileMap& tileMap = scene->GetTileMap();
+    auto& editModeEntities = scene->GetEditModeEntities();
     if (playerManager.PlayerExists(editModeEntities)) {
         CreatePlayModeSnapshots();
 
@@ -90,6 +92,8 @@ void Engine::StartPlayMode() {
 }
 
 void Engine::StopPlayMode() {
+    Scene* scene = GetCurrentScene();
+    auto& playModeSnapshots = scene->GetPlayModeSnapshots();
     playModeWindowOpen = false;
     currentMode = Mode::EDIT;
     playModeSnapshots.clear();
@@ -97,7 +101,10 @@ void Engine::StopPlayMode() {
 }
 
 void Engine::CreatePlayModeSnapshots() {
+    Scene* scene = GetCurrentScene();
+    auto& playModeSnapshots = scene->GetPlayModeSnapshots();
     playModeSnapshots.clear();
+    auto& editModeEntities = scene->GetEditModeEntities();
     for (auto& entity : editModeEntities) {
         playModeSnapshots.push_back(entity->CreateSnapshot());
     }
@@ -108,7 +115,8 @@ void Engine::CreatePlayModeSnapshots() {
 // =======================================
 void Engine::HandlePlayerPlacement() {
     if (IsMouseOverUI()) return;
-
+    Scene* scene = GetCurrentScene();
+    auto& editModeEntities = scene->GetEditModeEntities();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 mouseScreen = GetMousePosition();
         playerManager.PlacePlayer(mouseScreen, grid.GetCamera(), editModeEntities);
@@ -118,7 +126,8 @@ void Engine::HandlePlayerPlacement() {
 
 void Engine::HandlePlayerRemoval() {
     if (IsMouseOverUI()) return;
-
+    Scene* scene = GetCurrentScene();
+    auto& editModeEntities = scene->GetEditModeEntities();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 mouseScreen = GetMousePosition();
         if (playerManager.RemovePlayer(mouseScreen, grid.GetCamera(), editModeEntities)) {
@@ -129,7 +138,8 @@ void Engine::HandlePlayerRemoval() {
 
 void Engine::HandleEnemyPlacement() {
     if (IsMouseOverUI()) return;
-
+    Scene* scene = GetCurrentScene();
+    auto& editModeEntities = scene->GetEditModeEntities();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 mouseScreen = GetMousePosition();
         enemyManager.PlaceEnemy(mouseScreen, grid.GetCamera(), editModeEntities);
@@ -138,7 +148,8 @@ void Engine::HandleEnemyPlacement() {
 
 void Engine::HandleEnemyRemoval() {
     if (IsMouseOverUI()) return;
-
+    Scene* scene = GetCurrentScene();
+    auto& editModeEntities = scene->GetEditModeEntities();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 mouseScreen = GetMousePosition();
         enemyManager.RemoveEnemy(mouseScreen, grid.GetCamera(), editModeEntities);
@@ -153,6 +164,8 @@ void Engine::HandleTilePlacement()
 
     Vector2 mouseScreen = GetMousePosition();
     Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
+    Scene* scene = GetCurrentScene();
+    TileMap& tileMap = scene->GetTileMap();
 
     int tileSize = grid.GetTileSize();
     int gridX = static_cast<int>(worldPos.x / tileSize);
@@ -176,6 +189,8 @@ void Engine::HandleTileRemoval()
 
     Vector2 mouseScreen = GetMousePosition();
     Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
+    Scene* scene = GetCurrentScene();
+    TileMap& tileMap = scene->GetTileMap();
 
     int tileSize = grid.GetTileSize();
     int GridX = static_cast<int>(worldPos.x / tileSize);
@@ -198,6 +213,8 @@ void Engine::HandleTileRemoval()
 void Engine::DrawEditModeTiles()
 {
     int tileSize = grid.GetTileSize();
+    Scene* scene = GetCurrentScene();
+    TileMap& tileMap = scene->GetTileMap();
 
     for (const auto& [key, tileData] : tileMap.GetAllTiles()) {
         int x = static_cast<int>(key >> 32);
@@ -270,12 +287,14 @@ void Engine::HandleSceneDeletion(const int& index) {
 }
 
 // =======================================
-// =            Camera Logic            =
+// =            Camera Logic             =
 // =======================================
 void Engine::UpdateEditModeCamera() {
+    Scene* scene = GetCurrentScene();
+    auto& editModeEntities = scene->GetEditModeEntities();
     PlayerEntity* player = playerManager.FindPlayerEntity(editModeEntities);
     if (!player) {
-        editModeCameraArea = {0, 0, 0, 0};
+        scene->SetEditModeCameraArea({0,0,0,0});
         return;
     }
 
@@ -290,12 +309,13 @@ void Engine::UpdateEditModeCamera() {
         playerPos.y + playerSize.y / 2.0f
     };
 
-    editModeCameraArea = {
+    Rectangle editModeCameraArea = {
         playerCenter.x - width / 2.0f,
         playerCenter.y - height / 2.0f,
         static_cast<float>(width),
         static_cast<float>(height)
     };
+    scene->SetEditModeCameraArea(editModeCameraArea);
 }
 
 void Engine::UpdatePlayerCamera() {
@@ -307,9 +327,11 @@ void Engine::UpdatePlayerCamera() {
 }
 
 void Engine::UpdatePlayModeCamera() {
+    Scene* scene = GetCurrentScene();
+    auto& playModeSnapshots = scene->GetPlayModeSnapshots();
     PlayerEntity* player = playerManager.FindPlayerEntity(playModeSnapshots);
     if (!player) {
-        playModeCameraArea = {0, 0, 0, 0};
+        scene->SetPlayModeCameraArea({0,0,0,0});
         return;
     }
 
@@ -328,12 +350,13 @@ void Engine::UpdatePlayModeCamera() {
     playerCenter.x = std::round(playerCenter.x);
     playerCenter.y = std::round(playerCenter.y);
 
-    playModeCameraArea = {
+    Rectangle playModeCameraArea = {
         playerCenter.x - width / 2.0f,
         playerCenter.y - height / 2.0f,
         static_cast<float>(width),
         static_cast<float>(height)
     };
+    scene->SetPlayModeCameraArea(playModeCameraArea);
 
     playerCamera.target = playerCenter;
     playerCamera.offset = {width / 2.0f, height / 2.0f};
@@ -353,10 +376,14 @@ void Engine::UpdatePlayModeCamera() {
 
 // =======================================
 bool Engine::HasPlayer() {
+    Scene* scene = GetCurrentScene();
+    auto& editModeEntities = scene->GetEditModeEntities();
     return playerManager.PlayerExists(editModeEntities);
 }
 
-int Engine::GetEnemyCount() const {
+int Engine::GetEnemyCount() {
+    Scene* scene = GetCurrentScene();
+    auto& editModeEntities = scene->GetEditModeEntities();
     return enemyManager.GetEnemyCount(editModeEntities);
 }
 
@@ -365,7 +392,10 @@ void Engine::Run() {
         if (currentMode == Mode::EDIT) {
             HandleEditModeInput();
         }
-
+        Scene* scene = GetCurrentScene();
+        Rectangle editModeCameraArea = GetSceneCameraArea();
+        auto& editModeEntities = scene->GetEditModeEntities();
+        auto& playModeSnapshots = scene->GetPlayModeSnapshots();
         if (playModeWindowOpen && currentMode == Mode::PLAY) {
             PlayerEntity* playModePlayer = playerManager.FindPlayerEntity(playModeSnapshots);
 
@@ -388,6 +418,7 @@ void Engine::Run() {
         if (currentMode != Mode::PLAY){
             BeginMode2D(grid.GetCamera());
             DrawEditModeTiles();
+
             if (editModeCameraArea.width > 0 && editModeCameraArea.height > 0) {
                 DrawRectangleLinesEx(editModeCameraArea, 2.0f, GREEN);
                 DrawRectangleRec(editModeCameraArea, Fade(GREEN, 0.1f));

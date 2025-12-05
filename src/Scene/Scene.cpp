@@ -28,12 +28,30 @@ const TileMap& Scene::GetTileMap() const {
     return *tileMap;
 }
 
-std::vector<std::unique_ptr<Entity>>& Scene::GetEntities() {
+std::vector<std::unique_ptr<Entity>>& Scene::GetEditModeEntities() {
     return editModeEntities;
 }
 
-const std::vector<std::unique_ptr<Entity>>& Scene::GetEntities() const {
-    return editModeEntities;
+std::vector<std::unique_ptr<Entity>>& Scene::GetPlayModeSnapshots(){
+    return playModeSnapshots;
+}
+
+const Rectangle& Scene::GetEditModeCameraArea() const{
+    return editModeCameraArea;
+}
+
+void Scene::SetEditModeCameraArea(const Rectangle& newArea)
+{
+    editModeCameraArea = newArea;
+}
+
+const Rectangle& Scene::GetPlayModeCameraArea() const{
+    return playModeCameraArea;
+}
+
+void Scene::SetPlayModeCameraArea(const Rectangle& newArea)
+{
+    playModeCameraArea = newArea;
 }
 
 void Scene::Clear() {

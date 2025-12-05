@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include "raylib.h"
 
 class TileMap;
 class Entity;
@@ -19,8 +20,13 @@ public:
     TileMap& GetTileMap();
     const TileMap& GetTileMap() const;
 
-    std::vector<std::unique_ptr<Entity>>& GetEntities();
-    const std::vector<std::unique_ptr<Entity>>& GetEntities() const;
+    std::vector<std::unique_ptr<Entity>>& GetEditModeEntities();
+    std::vector<std::unique_ptr<Entity>>& GetPlayModeSnapshots();
+
+    const Rectangle& GetEditModeCameraArea() const;
+    void SetEditModeCameraArea(const Rectangle& newArea);
+    const Rectangle& GetPlayModeCameraArea() const;
+    void SetPlayModeCameraArea(const Rectangle& newArea);
 
     void Clear();
 
@@ -33,4 +39,10 @@ private:
 
     std::unique_ptr<TileMap> tileMap;
     std::vector<std::unique_ptr<Entity>> editModeEntities;
+    // Play mode uses snapshots - much more memory efficient
+    std::vector<std::unique_ptr<Entity>> playModeSnapshots;
+
+    // Separate camera areas for edit mode and play mode
+    Rectangle editModeCameraArea = {0, 0, 0, 0};  // Frozen during play mode
+    Rectangle playModeCameraArea = {0, 0, 0, 0};  // Updated during play mode
 };
