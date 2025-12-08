@@ -5,7 +5,6 @@
 
 Scene::Scene(const std::string& id, const std::string& displayName)
     : id(id), name(displayName), tileMap(std::make_unique<TileMap>()) {
-
 }
 
 const std::string& Scene::GetId() const {

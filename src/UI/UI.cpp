@@ -774,6 +774,9 @@ void UI::RenderNewSceneTab(Engine& engine) {
 
     ImGui::SameLine();
 
+    static int  lastPopupSceneIndex = -1;
+    static char renameBuf[64] = "";
+
     // One tab per scene
     for (int i = 0; i < sceneCount; i++) {
         ImGui::PushID(i);
@@ -801,6 +804,52 @@ void UI::RenderNewSceneTab(Engine& engine) {
             ImGui::PopStyleColor(3);
         }
 
+        if (ImGui::BeginPopupContextItem("SceneContext")) {
+            int sceneIndex = i;
+
+            // Initialize rename buffer when we open for a different scene
+            if (lastPopupSceneIndex != sceneIndex) {
+                std::string currName = engine.GetSceneName(sceneIndex);
+                std::snprintf(renameBuf, sizeof(renameBuf), "%s", currName.c_str());
+                lastPopupSceneIndex = sceneIndex;
+            }
+
+            ImGui::Text("Scene options");
+            ImGui::Separator();
+
+            // Rename
+            ImGui::Text("Name:");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(150.0f);
+            ImGui::InputText("##SceneRename", renameBuf, sizeof(renameBuf));
+
+            if (ImGui::Button("Apply rename")) {
+                std::string newName = renameBuf;
+                if (!newName.empty()) {
+                    engine.RenameScene(sceneIndex, newName);
+                    SetDebugMessage("[SCENE] Renamed scene to: " + newName);
+                }
+            }
+
+            ImGui::Separator();
+
+            // Starting scene checkbox
+            int startingIndex = engine.GetStartingSceneIndex();
+            bool isStarting   = (startingIndex == sceneIndex);
+
+            if (ImGui::Checkbox("Starting scene", &isStarting)) {
+                if (isStarting) {
+                    engine.SetStartingSceneIndex(sceneIndex);
+                    SetDebugMessage("[SCENE] Set as starting scene");
+                } else {
+                    engine.SetStartingSceneIndex(-1); // allow "no starting scene"
+                    SetDebugMessage("[SCENE] Cleared starting scene");
+                }
+            }
+
+            ImGui::EndPopup();
+        }
+
         // Small "x" delete button (only if more than one scene)
         if (sceneCount > 1) {
             ImGui::SameLine(0.0f, 2.0f);
@@ -816,9 +865,8 @@ void UI::RenderNewSceneTab(Engine& engine) {
         if (deleteThis) {
             engine.DeleteScene(i);
             SetDebugMessage("[SCENE] Deleted scene: " + sceneName);
-            break;  // scene list changed; exit the loop safely
+            break;
         }
     }
-
     ImGui::End();
 }

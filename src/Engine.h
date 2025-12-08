@@ -92,7 +92,7 @@ public:
         return assetManager;
     }
 
-// Scene management API (you implement these in Engine)
+    // Scene management API
     std::unordered_map<std::string, std::unique_ptr<Scene>>& GetAllScenes() {
         return scenes;
     }
@@ -146,6 +146,13 @@ public:
             it->second->SetName(newName);
         }
     }
+    int  GetStartingSceneIndex() const {
+        return startingSceneIndex;
+    }
+    void SetStartingSceneIndex(int index) {
+        startingSceneIndex = index;
+    }
+
     void CreateNewScene() {
         HandleSceneCreation();
     }
@@ -166,6 +173,7 @@ private:
     std::unordered_map<std::string, std::unique_ptr<Scene>> scenes;
     std::string currentSceneID;
     int nextSceneId = 1;
+    int startingSceneIndex = -1;
 
     Camera2D playerCamera;
     Rectangle playerCameraArea = {0, 0, 0, 0};

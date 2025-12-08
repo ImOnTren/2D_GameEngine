@@ -72,7 +72,17 @@ void Engine::HandleEditModeInput() {
     }
 }
 void Engine::StartPlayMode() {
-    Scene* scene = GetCurrentScene();
+    Scene* scene = nullptr;
+
+    if (startingSceneIndex < GetSceneCount()) {
+        auto it = scenes.begin();
+        std::advance(it, startingSceneIndex);
+        currentSceneID = it->first;        // make that scene current
+        scene = it->second.get();
+    } else {
+        scene = GetCurrentScene();         // fallback
+    }
+
     TileMap& tileMap = scene->GetTileMap();
     auto& editModeEntities = scene->GetEditModeEntities();
     if (playerManager.PlayerExists(editModeEntities)) {
@@ -93,15 +103,18 @@ void Engine::StartPlayMode() {
 
 void Engine::StopPlayMode() {
     Scene* scene = GetCurrentScene();
-    auto& playModeSnapshots = scene->GetPlayModeSnapshots();
+    if (scene) {
+        auto& playModeSnapshots = scene->GetPlayModeSnapshots();
+        playModeSnapshots.clear();
+    }
+    playModeTileMap.reset();
     playModeWindowOpen = false;
     currentMode = Mode::EDIT;
-    playModeSnapshots.clear();
-    playModeTileMap.reset();
 }
 
 void Engine::CreatePlayModeSnapshots() {
     Scene* scene = GetCurrentScene();
+    if (!scene) return;
     auto& playModeSnapshots = scene->GetPlayModeSnapshots();
     playModeSnapshots.clear();
     auto& editModeEntities = scene->GetEditModeEntities();
@@ -392,10 +405,12 @@ void Engine::Run() {
         if (currentMode == Mode::EDIT) {
             HandleEditModeInput();
         }
+
         Scene* scene = GetCurrentScene();
         Rectangle editModeCameraArea = GetSceneCameraArea();
         auto& editModeEntities = scene->GetEditModeEntities();
         auto& playModeSnapshots = scene->GetPlayModeSnapshots();
+
         if (playModeWindowOpen && currentMode == Mode::PLAY) {
             PlayerEntity* playModePlayer = playerManager.FindPlayerEntity(playModeSnapshots);
 
