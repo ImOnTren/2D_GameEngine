@@ -11,8 +11,11 @@ protected:
     float rotation;
     bool active;
 
+    bool collisionEnabled;
+    unsigned int collisionMask;
+
 public:
-    Entity(Vector2 pos = {0,0}, Vector2 size = {16,16});
+    explicit Entity(Vector2 pos = {0,0}, Vector2 size = {16,16});
     virtual ~Entity() = default;
 
     virtual void Update(float deltaTime);
@@ -20,7 +23,7 @@ public:
     virtual void OnCollision(Entity* other);
 
     // Snapshot methods - to be implemented by derived classes
-    virtual std::unique_ptr<Entity> CreateSnapshot() const {
+    [[nodiscard]] virtual std::unique_ptr<Entity> CreateSnapshot() const {
         // Default implementation creates a basic copy
         auto snapshot = std::make_unique<Entity>(*this);
         return snapshot;
@@ -36,14 +39,18 @@ public:
         }
     }
 
-    Vector2 GetPosition() const;
+    [[nodiscard]] Vector2 GetPosition() const;
     void SetPosition(Vector2 pos);
-    Vector2 GetVelocity() const;
+    [[nodiscard]] Vector2 GetVelocity() const;
     void SetVelocity(Vector2 vel);
-    Vector2 GetSize() const;
+    [[nodiscard]] Vector2 GetSize() const;
     void SetSize(Vector2 s);
-    bool IsActive() const;
+    [[nodiscard]] bool IsActive() const;
     void SetActive(bool state);
+    [[nodiscard]] bool IsCollisionEnabled() const;
+    void SetCollisionEnabled(bool enabled);
+    [[nodiscard]] unsigned int GetCollisionMask() const;
+    void SetCollisionMask(const unsigned int& mask);
 
     Rectangle GetBounds() const;
 };

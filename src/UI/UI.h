@@ -40,12 +40,13 @@ private:
     static void RenderCameraResolutionControls(Engine& engine);
     static void RenderAssetFilters(AssetManager& assetManager, std::vector<std::string>& categories);
     static void RenderCategoryList(std::vector<std::string>& categories, std::vector<Asset*>& allAssets);
-    static void RenderAssetGrid(AssetManager& assetManager, std::vector<Asset*>& allAssets);
+    static void RenderAssetGrid(Engine& engine, AssetManager& assetManager, std::vector<Asset*>& allAssets);
     static void RenderAssetThumbnail(Asset* asset);
-    static void RenderAssetDetails(Asset* asset, AssetManager& assetManager);
+    static void RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetManager);
     static void RenderTilesetPreview(Asset* asset);
     static void RenderTileSelectionWindow(Engine& engine, Asset* tileset);
     static void RenderTilesetGrid(Asset* tileset);
+    static void RenderTileSceneContext(Engine& engine, Grid& grid);
     static std::vector<std::string> DebugMessages;
 
     static std::string selectedCategory;
@@ -62,5 +63,6 @@ private:
     static Vector2 selectedTileCoords;
     static int tilesetTileWidth;
     static int tilesetTileHeight;
+    static bool tileMapModified;
 
 };

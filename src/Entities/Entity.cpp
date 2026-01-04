@@ -1,8 +1,7 @@
 #include "Entity.h"
 
 Entity::Entity(Vector2 pos, Vector2 size)
-    : position(pos), velocity({0,0}), size(size), rotation(0), active(true) {
-
+    : position(pos), velocity({0,0}), size(size), rotation(0), active(true), collisionEnabled(true), collisionMask(0xFFFFFFFF) {
 }
 
 void Entity::Update(float deltaTime) {
@@ -53,6 +52,26 @@ bool Entity::IsActive() const {
 void Entity::SetActive(bool state) {
     active = state;
 }
+
+bool Entity::IsCollisionEnabled() const {
+    if (collisionEnabled) {
+        return true;
+    }
+    return false;
+}
+
+void Entity::SetCollisionEnabled(bool enabled) {
+    collisionEnabled = enabled;
+}
+
+unsigned int Entity::GetCollisionMask() const {
+    return collisionMask;
+}
+
+void Entity::SetCollisionMask(const unsigned int& mask) {
+    collisionMask = mask;
+}
+
 // =======================================
 
 Rectangle Entity::GetBounds() const {

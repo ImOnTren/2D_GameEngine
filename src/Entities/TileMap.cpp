@@ -19,3 +19,11 @@ void TileMap::SetTile(int x, int y, TileData tile){
 TileData TileMap::GetTile(int x, int y){
     return tiles[PositionToID(x, y)];
 }
+
+TileData* TileMap::GetTilePtr(int x, int y) {
+    auto it = tiles.find(PositionToID(x, y));
+    if (it != tiles.end()) {
+        return &it->second;
+    }
+    return nullptr;
+}

@@ -19,12 +19,19 @@ public:
     int GetGridX() const { return cellX; }
     int GetGridY() const { return cellY; }
     Vector2 GetPlayerPosition() const { return position; }
+    Vector2 GetPreviousPosition() const { return previousPosition; }
+    int GetPreviousGridX() const { return previousGridX; }
+    int GetPreviousGridY() const { return previousGridY; }
+    void RestorePreviousTransform();
+    void SetWorldPositionAndUpdateGrid(Vector2 worldPosition);
 
     bool LoadPlayerTexture(const char* path);
 
 private:
     Grid& grid;
     int cellX, cellY;
+    Vector2 previousPosition;
+    int previousGridX, previousGridY;
     Texture2D playerTexture;
     bool textureLoaded = false;
     float speed = 100.0f;

@@ -36,6 +36,7 @@ void Engine::LoadAssets()
     assetManager.LoadAsset("winter_tileset", "Winter_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Tileset Grass Winter.png", 16, 16);
     assetManager.LoadAsset("water_tileset", "Water_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
     assetManager.LoadAsset("caves_tileset", "Caves_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Caves.png", 16, 16);
+    assetManager.LoadAsset("broken_house1", "Broken_House_1_texture", "Static Texture", "../src/assets/Exterior/Houses/4.png");
 }
 
 
@@ -66,25 +67,30 @@ void Engine::HandleEditModeInput() {
         case ToolState::REMOVING_TILE:
             HandleTileRemoval();
             break;
+        case ToolState::PLACING_ASSET:
+            HandleAssetPlacement();
+            break;
         case ToolState::NONE:
             grid.Update();
             break;
     }
 }
 void Engine::StartPlayMode() {
-    Scene* scene = nullptr;
-
-    if (startingSceneIndex < GetSceneCount()) {
-        auto it = scenes.begin();
-        std::advance(it, startingSceneIndex);
-        currentSceneID = it->first;        // make that scene current
-        scene = it->second.get();
-    } else {
-        scene = GetCurrentScene();         // fallback
+    // Check if a valid starting scene is set
+    if (startingSceneID.empty() || scenes.find(startingSceneID) == scenes.end()) {
+        UI::SetDebugMessage("[WARNING] Cannot start play mode: No starting scene set");
+        playModeWindowOpen = false;
+        currentMode = Mode::EDIT;
+        return;
     }
+
+    // Switch to the starting scene
+    currentSceneID = startingSceneID;
+    Scene* scene = scenes[startingSceneID].get();
 
     TileMap& tileMap = scene->GetTileMap();
     auto& editModeEntities = scene->GetEditModeEntities();
+
     if (playerManager.PlayerExists(editModeEntities)) {
         CreatePlayModeSnapshots();
 
@@ -97,7 +103,7 @@ void Engine::StartPlayMode() {
     } else {
         playModeWindowOpen = false;
         currentMode = Mode::EDIT;
-        UI::SetDebugMessage("[WARNING] Cannot start play mode: No player placed");
+        UI::SetDebugMessage("[WARNING] Cannot start play mode: No player placed in starting scene");
     }
 }
 
@@ -223,6 +229,29 @@ void Engine::HandleTileRemoval()
     }
 }
 
+//===============================================
+//               Static textures                =
+//===============================================
+void Engine::HandleAssetPlacement(){
+    if (IsMouseOverUI()) return;
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Scene* scene = GetCurrentScene();
+        Vector2 mouseScreen = GetMousePosition();
+        Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
+
+        auto *newAsset = new StaticEntity(grid, assetToolState.asset,
+                                      static_cast<int>(worldPos.x) / grid.GetTileSize(),
+                                      static_cast<int>(worldPos.y) / grid.GetTileSize());
+        scene->GetEditModeEntities().emplace_back(newAsset);
+        UI::SetDebugMessage("[INFO] Placed asset '" + assetToolState.asset->name + "' at (" +
+                            std::to_string(static_cast<int>(worldPos.x) / grid.GetTileSize()) + ", " +
+                            std::to_string(static_cast<int>(worldPos.y) / grid.GetTileSize()) + ")");
+    }
+
+}
+
+
 void Engine::DrawEditModeTiles()
 {
     int tileSize = grid.GetTileSize();
@@ -293,10 +322,87 @@ void Engine::HandleSceneDeletion(const int& index) {
 
     auto it = scenes.begin();
     std::advance(it, index);
-    if (it->first == currentSceneID) {
-        currentSceneID = scenes.begin()->first;
+    const std::string sceneToDelete = it->first;
+
+    // If deleting the current scene, switch to another scene first
+    if (sceneToDelete == currentSceneID) {
+        // Find a different scene to switch to
+        for (auto& [id, scenePtr] : scenes) {
+            if (id != sceneToDelete) {
+                currentSceneID = id;
+                break;
+            }
+        }
     }
-    scenes.erase(it);
+
+    // Adjust starting scene index if needed
+    if (startingSceneID == sceneToDelete) {
+        startingSceneID = "";
+        UI::SetDebugMessage("[INFO] Starting scene was deleted, please set a new starting scene");
+    }
+
+    scenes.erase(sceneToDelete);
+    UI::SetDebugMessage("[INFO] Scene deleted successfully");
+}
+void Engine::ChangeScene(const std::string& targetSceneID, int spawnGridX, int spawnGridY) {
+    auto it = scenes.find(targetSceneID);
+    if (it == scenes.end()) {
+        UI::SetDebugMessage("[ERROR] Scene with ID '" + targetSceneID + "' not found");
+        return;
+    }
+    currentSceneID = targetSceneID;
+    Scene* scene = it->second.get();
+    auto& playModeSnapshots = scene->GetPlayModeSnapshots();
+    playModeSnapshots.clear();
+    auto& editModeEntities = scene->GetEditModeEntities();
+    for (auto& entity : editModeEntities) {
+        playModeSnapshots.push_back(entity->CreateSnapshot());
+    }
+    playModeTileMap = std::make_unique<TileMap>();
+    *playModeTileMap = scene->GetTileMap();
+    PlayerEntity* player = playerManager.FindPlayerEntity(playModeSnapshots);
+    if (player) {
+        player->PlaceOnGrid(spawnGridX, spawnGridY);
+    }
+    UpdatePlayModeCamera();
+    UI::SetDebugMessage("[SCENE] Changed to scene '" + scene->GetName() + "' (ID: " + targetSceneID + ")");
+}
+
+void Engine::HandleSceneSwitchInPlayMode() {
+    if (!playModeTileMap) {
+        return;
+    }
+    Scene* scene = GetCurrentScene();
+    if (!scene) {
+        return;
+    }
+    auto& playModeSnapshots = scene->GetPlayModeSnapshots();
+    PlayerEntity* player = playerManager.FindPlayerEntity(playModeSnapshots);
+    if (!player) {
+        return;
+    }
+
+    int playerGridX = player->GetGridX();
+    int playerGridY = player->GetGridY();
+
+    if (!playModeTileMap->HasTile(playerGridX, playerGridY)) {
+        return;
+    }
+
+    TileData tile = playModeTileMap->GetTile(playerGridX, playerGridY);
+    if (!tile.isSceneSwitcher) {
+        return;
+    }
+    if (tile.triggerKey == 0) {
+        return;
+    }
+    if (IsKeyPressed(tile.triggerKey)) {
+        if (tile.targetSceneID.empty()) {
+            UI::SetDebugMessage("[ERROR] Tile at (" + std::to_string(playerGridX) + ", " + std::to_string(playerGridY) + ") has no target scene ID set");
+            return;
+        }
+        ChangeScene(tile.targetSceneID, playerGridX, playerGridY);
+    }
 }
 
 // =======================================
@@ -400,6 +506,108 @@ int Engine::GetEnemyCount() {
     return enemyManager.GetEnemyCount(editModeEntities);
 }
 
+void Engine::ResolveCollisionInPlayMode() {
+    if (!playModeTileMap) {
+        return;
+    }
+    Scene* scene = GetCurrentScene();
+    if (!scene) {
+        return;
+    }
+    auto& playModeSnapshots = scene->GetPlayModeSnapshots();
+    PlayerEntity* player = playerManager.FindPlayerEntity(playModeSnapshots);
+    if (!player) {
+        return;
+    }
+    if (!player->IsCollisionEnabled()) {
+        return;
+    }
+
+    Vector2 previousPlayerPos = player->GetPreviousPosition();
+    Vector2 currentPlayerPos = player->GetPosition();
+
+    float dx = currentPlayerPos.x - previousPlayerPos.x;
+    float dy = currentPlayerPos.y - previousPlayerPos.y;
+
+    if (dx == 0.0f && dy == 0.0f) {
+        return;
+    }
+
+    Rectangle playerBounds = player->GetBounds();
+    float width = playerBounds.width;
+    float height = playerBounds.height;
+
+    int tileSize = grid.GetTileSize();
+
+    auto collidesAt = [&](float x, float y) -> bool {
+        Rectangle r{x, y, width, height};
+        int startX = static_cast<int>(r.x) / tileSize;
+        int startY = static_cast<int>(r.y) / tileSize;
+        int endX = static_cast<int>(r.x + r.width - 1) / tileSize;
+        int endY = static_cast<int>(r.y + r.height - 1) / tileSize;
+        for (int ty = startY; ty <= endY; ++ty) {
+            for (int tx = startX; tx <= endX; ++tx) {
+                if (!playModeTileMap->HasTile(tx, ty)) {
+                    continue;
+                }
+                TileData tile = playModeTileMap->GetTile(tx, ty);
+                if (!tile.isSolid) {
+                    continue;
+                }
+                Rectangle tileRect{
+                    static_cast<float>(tx * tileSize),
+                    static_cast<float>(ty * tileSize),
+                    static_cast<float>(tileSize),
+                    static_cast<float>(tileSize)
+                };
+                if (CheckCollisionRecs(r, tileRect)) {
+                    return true;
+                }
+            }
+        }
+        for (auto& entity : playModeSnapshots) {
+            if (entity.get() == player) {
+                continue;
+            }
+            if (!entity->IsCollisionEnabled()) {
+                continue;
+            }
+            Rectangle entityBounds = entity->GetBounds();
+            if (CheckCollisionRecs(r, entityBounds)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    Vector2 resolvedPos = previousPlayerPos;
+    bool xBlocked = false;
+    bool yBlocked = false;
+    if (dx != 0.0f) {
+        float candX = previousPlayerPos.x + dx;
+        if (!collidesAt(candX, previousPlayerPos.y)) {
+            resolvedPos.x = candX;
+        }
+        else {
+            xBlocked = true;
+        }
+    }
+    if (dy != 0.0f) {
+        float candY = previousPlayerPos.y + dy;
+        if (!collidesAt(resolvedPos.x, candY)) {
+            resolvedPos.y = candY;
+        }
+        else {
+            yBlocked = true;
+        }
+    }
+    player->SetWorldPositionAndUpdateGrid(resolvedPos);
+    Vector2 playerVelocity = player->GetVelocity();
+    playerVelocity.x = xBlocked ? 0.0f : playerVelocity.x;
+    playerVelocity.y = yBlocked ? 0.0f : playerVelocity.y;
+    player->SetVelocity(playerVelocity);
+}
+
 void Engine::Run() {
     while (!WindowShouldClose()) {
         if (currentMode == Mode::EDIT) {
@@ -422,7 +630,9 @@ void Engine::Run() {
                     enemy->Update(GetFrameTime(), playModePlayer);
                 }
             }
+            ResolveCollisionInPlayMode();
             UpdatePlayModeCamera();
+            HandleSceneSwitchInPlayMode();
         }
 
         BeginDrawing();

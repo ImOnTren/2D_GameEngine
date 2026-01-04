@@ -3,7 +3,15 @@
 PlayerEntity::PlayerEntity(Grid& g, int gridX, int gridY)
     : Entity({0,0}, {16,16}), grid(g), cellX(gridX), cellY(gridY) {
     PlaceOnGrid(gridX, gridY);
+
+    collisionEnabled = true;
+    collisionMask = 0xFFFFFFFF; // Collide with all by default
+
     textureLoaded = LoadPlayerTexture("../src/player/hugo.png");
+
+    previousPosition = position;
+    previousGridX = cellX;
+    previousGridY = cellY;
 }
 
 PlayerEntity::PlayerEntity(const PlayerEntity& other)
@@ -13,6 +21,12 @@ PlayerEntity::PlayerEntity(const PlayerEntity& other)
     if (textureLoaded) {
         playerTexture = other.playerTexture; // This is a handle copy, not deep copy
     }
+    collisionEnabled = true;
+    collisionMask = 0xFFFFFFFF; // Collide with all by default
+
+    previousPosition = other.previousPosition;
+    previousGridX = other.previousGridX;
+    previousGridY = other.previousGridY;
 }
 
 PlayerEntity::~PlayerEntity() {
@@ -46,6 +60,19 @@ void PlayerEntity::RestoreFromSnapshot(const Entity* snapshot) {
     }
 }
 
+void PlayerEntity::RestorePreviousTransform() {
+    position = previousPosition;
+    cellX = previousGridX;
+    cellY = previousGridY;
+}
+
+void PlayerEntity::SetWorldPositionAndUpdateGrid(Vector2 worldPosition) {
+    position = worldPosition;
+    int tileSize = grid.GetTileSize();
+    cellX = static_cast<int>(position.x / static_cast<float>(tileSize));
+    cellY = static_cast<int>(position.y / static_cast<float>(tileSize));
+}
+
 bool PlayerEntity::LoadPlayerTexture(const char* path) {
     if (FileExists(path)) {
         playerTexture = LoadTexture(path);
@@ -61,6 +88,10 @@ bool PlayerEntity::LoadPlayerTexture(const char* path) {
 }
 
 void PlayerEntity::Update(float deltaTime) {
+    previousPosition = position;
+    previousGridX = cellX;
+    previousGridY = cellY;
+
     // Smooth movement using velocity
     Vector2 input = {0, 0};
 

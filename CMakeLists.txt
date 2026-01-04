@@ -61,6 +61,10 @@ add_executable(2D_GameEngine
         src/Entities/TileMap.h
         src/Scene/Scene.cpp
         src/Scene/Scene.h
+        src/Entities/StaticEntity.cpp
+        src/Entities/StaticEntity.h
+        src/Project/SaveLoad.cpp
+        src/Project/SaveLoad.h
 )
 
 target_link_libraries(2D_GameEngine PRIVATE raylib nlohmann_json::nlohmann_json)

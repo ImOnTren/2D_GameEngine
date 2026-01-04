@@ -5,6 +5,8 @@
 EnemyEntity::EnemyEntity(Grid& grid, int gridX, int gridY)
     : Entity({0,0}, {16,16}), grid(grid), cellX(gridX), cellY(gridY) {
     PlaceOnGrid(gridX, gridY);
+    collisionEnabled = true;
+    collisionMask = 0xFFFFFFFF; // Collide with all by default
 }
 
 void EnemyEntity::Update(float deltaTime, const PlayerEntity* player) {

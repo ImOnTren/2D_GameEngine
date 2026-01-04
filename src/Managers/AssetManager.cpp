@@ -119,13 +119,16 @@ Rectangle AssetManager::GetSpecificSprite(const Asset* asset, const int& index){
         UI::SetDebugMessage("[ASSET] Cannot get sprite: Asset not loaded");
         return {0, 0, 0, 0};
     }
+    if (asset->type == AssetType::INDIVIDUAL_TEXTURE){
+        if (asset->SpriteSourceRect.width == 0 || asset->SpriteSourceRect.height == 0){
+            return {0, 0, static_cast<float>(asset->texture.width), static_cast<float>(asset->texture.height)};
+        }
+        return asset->SpriteSourceRect;
+    }
     if (index < 0 || index >= static_cast<int>(asset->subSprites.size()))
     {
         UI::SetDebugMessage("[ASSET] Invalid sprite index: " + std::to_string(index));
         return {0, 0, 0, 0};
-    }
-    if (asset->type == AssetType::INDIVIDUAL_TEXTURE){
-        return asset->SpriteSourceRect;
     }
 
     if (index < static_cast<int>(asset->subSprites.size()))

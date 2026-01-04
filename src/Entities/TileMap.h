@@ -6,6 +6,10 @@
 struct TileData {
     std::string tileID;
     int tileIndex;
+    bool isSolid = false;
+    bool isSceneSwitcher = false;
+    std::string targetSceneID;
+    int triggerKey = 0;
 };
 
 class TileMap {
@@ -20,8 +24,9 @@ public:
     }
 
     TileData GetTile(int x, int y);
+    TileData* GetTilePtr(int x, int y);
     void SetTile(int x, int y, TileData tile);
-    const auto& GetAllTiles() {return tiles;};
+    auto& GetAllTiles() const {return tiles;};
 
     void RemoveTile(int x, int y);
     bool HasTile(int x, int y);

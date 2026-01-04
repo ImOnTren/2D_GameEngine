@@ -18,11 +18,13 @@
 #include "Managers/AssetManager.h"
 #include "Entities/TileMap.h"
 #include "Scene/Scene.h"
+#include "Entities/StaticEntity.h"
+#include "Project/SaveLoad.h"
 
 class Engine {
 public:
     enum class Mode { EDIT, PLAY };
-    enum class ToolState { NONE, PLACING_PLAYER, PLACING_ENEMY, REMOVING_PLAYER, REMOVING_ENEMY, PLACING_TILE, REMOVING_TILE };
+    enum class ToolState { NONE, PLACING_PLAYER, PLACING_ENEMY, PLACING_ASSET, REMOVING_PLAYER, REMOVING_ENEMY, PLACING_TILE, REMOVING_TILE };
 
     Engine();
     ~Engine();
@@ -49,6 +51,11 @@ public:
         bool isPlacingTile = false;
     } tileToolState;
 
+    struct {
+        Asset* asset = nullptr;
+        bool isPlacing = false;
+    } assetToolState;
+
     std::vector<CameraResolution> availableResolutions = {
         {640, 360, "640x360 (16:9)"},
         {800, 450, "800x450 (16:9)"},
@@ -66,12 +73,20 @@ public:
 
     bool HasPlayer();
 
+    std::unique_ptr<TileMap>& GetPlayModeTileMap() {
+        return playModeTileMap;
+    }
+
     const std::vector<CameraResolution>& GetAvailableResolutions() const {
         return availableResolutions;
     }
 
     int GetSelectedResolutionIndex() const {
         return selectedResolutionIndex;
+    }
+
+    Grid& GetGrid() {
+        return grid;
     }
 
     void SetSelectedResolutionIndex(int index) {
@@ -96,38 +111,50 @@ public:
     std::unordered_map<std::string, std::unique_ptr<Scene>>& GetAllScenes() {
         return scenes;
     }
+
     Scene* GetCurrentScene() {
         if (scenes.find(currentSceneID) != scenes.end()) {
             return scenes[currentSceneID].get();
         }
         return nullptr;
     }
+
     void SetCurrentScene(const std::string& sceneID) {
         if (scenes.find(sceneID) != scenes.end()) {
             currentSceneID = sceneID;
         }
     }
+
     int GetSceneCount() const {
-        return scenes.size();
+        return static_cast<int>(scenes.size());
     }
+
+    void SetCurrentSceneByIndex(const int value) {
+        if (value >= 0 && value < scenes.size()) {
+            auto it = scenes.begin();
+            std::advance(it, value);
+            currentSceneID = it->first;
+        }
+    }
+
     int GetCurrentSceneIndex() const {
         int index = 0;
-        for (const auto& pair : scenes) {
-            if (pair.first == currentSceneID) {
+        for (const auto&[fst, snd] : scenes) {
+            if (fst == currentSceneID) {
                 return index;
             }
             ++index;
         }
         return -1; // Not found
     }
-    void SetCurrentSceneIndex(int index) {
+    void SetCurrentSceneIndex(const int index) {
         if (index >= 0 && index < scenes.size()) {
             auto it = scenes.begin();
             std::advance(it, index);
             currentSceneID = it->first;
         }
     }
-    std::string GetSceneName(int index) const {
+    std::string GetSceneName(const int index) const {
         if (index >= 0 && index < scenes.size()) {
             auto it = scenes.begin();
             std::advance(it, index);
@@ -139,18 +166,36 @@ public:
     {
         return GetCurrentScene()->GetEditModeCameraArea();
     }
-    void RenameScene(int index, const std::string& newName) {
+    void RenameScene(const int index, const std::string& newName) {
         if (index >= 0 && index < scenes.size()) {
             auto it = scenes.begin();
             std::advance(it, index);
             it->second->SetName(newName);
         }
     }
-    int  GetStartingSceneIndex() const {
-        return startingSceneIndex;
+
+    std::string GetSceneID(const int index) const {
+        if (index < 0 || index >= static_cast<int>(scenes.size())) {
+            return "";
+        }
+        auto it = scenes.begin();
+        std::advance(it, index);
+        return it->first;
     }
-    void SetStartingSceneIndex(int index) {
-        startingSceneIndex = index;
+
+    std::string GetStartingSceneID() const {
+        return startingSceneID;
+    }
+    void SetStartingSceneID(const std::string &ID) {
+        startingSceneID = ID;
+    }
+
+    void SetNextSceneId(const int value) {
+        nextSceneId = value;
+    }
+
+    int GetNextSceneId() const {
+        return nextSceneId;
     }
 
     void CreateNewScene() {
@@ -173,7 +218,7 @@ private:
     std::unordered_map<std::string, std::unique_ptr<Scene>> scenes;
     std::string currentSceneID;
     int nextSceneId = 1;
-    int startingSceneIndex = -1;
+    std::string startingSceneID;
 
     Camera2D playerCamera;
     Rectangle playerCameraArea = {0, 0, 0, 0};
@@ -185,8 +230,11 @@ private:
     void HandleEnemyRemoval();
     void HandleTilePlacement();
     void HandleTileRemoval();
+    void HandleAssetPlacement();
     void HandleSceneCreation();
     void HandleSceneDeletion(const int& index);
+    void ChangeScene(const std::string& targetSceneID, int spawnGridX, int spawnGridY);
+    void HandleSceneSwitchInPlayMode();
     void DrawEditModeTiles();
     void DrawPlayModeTiles();
     void HandleEditModeInput();
@@ -197,4 +245,6 @@ private:
     void UpdatePlayModeCamera();
     void UpdateEditModeCamera();
     void LoadAssets();
+    void ResolveCollisionInPlayMode();
+
 };
