@@ -31,7 +31,7 @@ public:
 
     void Init();
     void Run();
-    void Shutdown();
+    void Shutdown() const;
 
     Mode currentMode = Mode::EDIT;
     ToolState currentTool = ToolState::NONE;
@@ -49,6 +49,7 @@ public:
         Asset* tileset = nullptr;
         int selectedTileIndex = -1;
         bool isPlacingTile = false;
+        int activeLayer = 0;
     } tileToolState;
 
     struct {
@@ -201,10 +202,16 @@ public:
     void CreateNewScene() {
         HandleSceneCreation();
     }
+
     void DeleteScene(const int& index) {
         const int& sceneIndex = index;
         HandleSceneDeletion(sceneIndex);
     }
+
+    void SetCurrentTileLayer(int layer);
+    int GetCurrentTileLayer() const;
+    void CycleLayerUp();
+    void CycleLayerDown();
 
     void StartPlayMode();
     void StopPlayMode();
@@ -230,6 +237,7 @@ private:
     void HandleEnemyRemoval();
     void HandleTilePlacement();
     void HandleTileRemoval();
+    void DrawHoveredTileLayerInfo();
     void HandleAssetPlacement();
     void HandleSceneCreation();
     void HandleSceneDeletion(const int& index);

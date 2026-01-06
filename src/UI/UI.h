@@ -15,7 +15,7 @@ class Grid;
 
 class UI {
 public:
-    static void RenderControlPanel(Engine& engine, Grid& grid);
+    static void RenderControlPanel(Engine& engine, const Grid& grid);
     static void RenderDebugConsole();
     static void RenderAssetConsole(Engine& engine);
     static void RenderPlayModeWindow(Engine& engine);
@@ -38,15 +38,15 @@ public:
 private:
     static void RenderModeControls(Engine& engine);
     static void RenderCameraResolutionControls(Engine& engine);
-    static void RenderAssetFilters(AssetManager& assetManager, std::vector<std::string>& categories);
-    static void RenderCategoryList(std::vector<std::string>& categories, std::vector<Asset*>& allAssets);
-    static void RenderAssetGrid(Engine& engine, AssetManager& assetManager, std::vector<Asset*>& allAssets);
+    static void RenderAssetFilters(AssetManager& assetManager, const std::vector<std::string>& categories);
+    static void RenderCategoryList(const std::vector<std::string>& categories, std::vector<Asset*>& allAssets);
+    static void RenderAssetGrid(Engine& engine, AssetManager& assetManager, const std::vector<Asset*>& allAssets);
     static void RenderAssetThumbnail(Asset* asset);
     static void RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetManager);
-    static void RenderTilesetPreview(Asset* asset);
+    static void RenderTilesetPreview(const Asset* asset);
     static void RenderTileSelectionWindow(Engine& engine, Asset* tileset);
     static void RenderTilesetGrid(Asset* tileset);
-    static void RenderTileSceneContext(Engine& engine, Grid& grid);
+    static void RenderTileSceneContext(Engine& engine, const Grid& grid);
     static std::vector<std::string> DebugMessages;
 
     static std::string selectedCategory;
@@ -64,5 +64,14 @@ private:
     static int tilesetTileWidth;
     static int tilesetTileHeight;
     static bool tileMapModified;
+
+    static constexpr int MAX_LAYERS = 5;
+    static constexpr const char* LAYER_NAMES[MAX_LAYERS] = {
+        "Background",
+        "Ground",
+        "Decoration",
+        "Foreground",
+        "Overlay"
+    };
 
 };

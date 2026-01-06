@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <vector>
 #include <unordered_map>
 
 struct TileData {
@@ -10,6 +11,7 @@ struct TileData {
     bool isSceneSwitcher = false;
     std::string targetSceneID;
     int triggerKey = 0;
+    int layer = 0;
 };
 
 class TileMap {
@@ -23,19 +25,24 @@ public:
         return *this;
     }
 
-    TileData GetTile(int x, int y);
-    TileData* GetTilePtr(int x, int y);
-    void SetTile(int x, int y, TileData tile);
-    auto& GetAllTiles() const {return tiles;};
+    TileData GetTile(int x, int y, int layer = 0);
+
+    std::vector<TileData> *GetTilePtr(int x, int y);
+    void SetTile(int x, int y, const TileData& tile, int layer = 0);
+    auto& GetAllTiles() const {return tiles;}
+    std::vector<TileData> GetTilesAtPosition(int x, int y) const;
 
     void RemoveTile(int x, int y);
-    bool HasTile(int x, int y);
+    void RemoveTileFromLayer(int x, int y, int layer);
+    bool HasTile(int x, int y, int layer = -1);
     void Clear();
 
-private:
-    std::unordered_map<uint64_t, TileData> tiles;
+    int GetLayerCount(int x, int y);
 
-    uint64_t PositionToID(int x, int y) {
+private:
+    std::unordered_map<uint64_t, std::vector<TileData>> tiles;
+
+    uint64_t PositionToID(int x, int y) const {
         return (static_cast<uint64_t>(x) << 32) | static_cast<uint64_t>(y);
     }
 };

@@ -34,16 +34,22 @@ static json SerializeTileMap(const TileMap& tileMap) {
     for (const auto& [key, tileData] : tileMap.GetAllTiles()) {
         int x = static_cast<int>(key >> 32);
         int y = static_cast<int>(key & 0xFFFFFFFF);
-        json tileJson;
-        tileJson["x"] = x;
-        tileJson["y"] = y;
-        tileJson["tileID"] = tileData.tileID;
-        tileJson["tileIndex"] = tileData.tileIndex;
-        tileJson["isSolid"] = tileData.isSolid;
-        tileJson["isSceneSwitcher"] = tileData.isSceneSwitcher;
-        tileJson["targetSceneID"] = tileData.targetSceneID;
-        tileJson["triggerKey"] = tileData.triggerKey;
-        j.push_back(tileJson);
+        std::vector<TileData> tilesAtPos = tileMap.GetTilesAtPosition(x, y);
+        json tileJsonHelper;
+        for (const auto& tile : tilesAtPos) {
+            json tileJson;
+            tileJson["x"] = x;
+            tileJson["y"] = y;
+            tileJson["tileID"] = tile.tileID;
+            tileJson["tileIndex"] = tile.tileIndex;
+            tileJson["isSolid"] = tile.isSolid;
+            tileJson["isSceneSwitcher"] = tile.isSceneSwitcher;
+            tileJson["targetSceneID"] = tile.targetSceneID;
+            tileJson["triggerKey"] = tile.triggerKey;
+            tileJson["layer"] = tile.layer;
+            tileJsonHelper = tileJson;
+        }
+        j.push_back(tileJsonHelper);
     }
     return j;
 }
@@ -146,7 +152,8 @@ bool SaveLoad::LoadProject(Engine& engine, const std::string& filepath) {
                     tileData.isSceneSwitcher = jsonTileMap.value("isSceneSwitcher", false);
                     tileData.targetSceneID = jsonTileMap.value("targetSceneID", "");
                     tileData.triggerKey = jsonTileMap.value("triggerKey", 0);
-                    newTileMap.SetTile(x, y, tileData);
+                    tileData.layer = jsonTileMap.value("layer", 0);
+                    newTileMap.SetTile(x, y, tileData, tileData.layer);
                 }
             }
             if (scene.contains("entities") && scene["entities"].is_array()) {

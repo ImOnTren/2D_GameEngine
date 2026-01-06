@@ -53,13 +53,13 @@ void Grid::Update() {
 }
 
 void Grid::Draw() {
-    int tileSize = GetTileSize();
+    int gridTileSize = GetTileSize();
 
-    int screenWidth = GetScreenWidth();
-    int screenHeight = GetScreenHeight();
-    float panelWidth = static_cast<float>(screenWidth) / 4.0f;
-    float panelHeight = static_cast<float>(screenHeight) - (static_cast<float>(screenHeight) / 4.0f);
-    float sceneTabHeight = static_cast<float>(screenHeight) / 18.0f;
+    const int screenWidth = GetScreenWidth();
+    const int screenHeight = GetScreenHeight();
+    const float panelWidth = static_cast<float>(screenWidth) / 4.0f;
+    const float panelHeight = static_cast<float>(screenHeight) - (static_cast<float>(screenHeight) / 4.0f);
+    const float sceneTabHeight = static_cast<float>(screenHeight) / 18.0f;
 
     int startX, endX, startY, endY;
 
@@ -70,12 +70,12 @@ void Grid::Draw() {
         BeginMode2D(GridCamera);
 
         Vector2 topLeft = GetScreenToWorld2D({ panelWidth, sceneTabHeight }, GridCamera);
-        Vector2 bottomRight = GetScreenToWorld2D({ (float)screenWidth, panelHeight }, GridCamera);
+        Vector2 bottomRight = GetScreenToWorld2D({ static_cast<float>(screenWidth), panelHeight }, GridCamera);
 
-        startX = (int)std::ceil(topLeft.x / static_cast<float>(tileSize));
-        endX = (int)(bottomRight.x / static_cast<float>(tileSize));
-        startY = (int)std::ceil(topLeft.y / static_cast<float>(tileSize));
-        endY = (int)(bottomRight.y / static_cast<float>(tileSize));
+        startX = static_cast<int>(std::ceil(topLeft.x / static_cast<float>(gridTileSize)));
+        endX = static_cast<int>(bottomRight.x / static_cast<float>(gridTileSize));
+        startY = static_cast<int>(std::ceil(topLeft.y / static_cast<float>(gridTileSize)));
+        endY = static_cast<int>(bottomRight.y / static_cast<float>(gridTileSize));
 
         if (startX < 0) startX = 0;
         if (startY < 0) startY = 0;
@@ -83,7 +83,7 @@ void Grid::Draw() {
         // Draw grid lines
         for (int y = startY; y <= endY; y++) {
             for (int x = startX; x <= endX; x++) {
-                DrawRectangleLines(x * tileSize, y * tileSize, tileSize, tileSize, DARKGRAY);
+                DrawRectangleLines(x * gridTileSize, y * gridTileSize, gridTileSize, gridTileSize, DARKGRAY);
             }
         }
         //==================
@@ -94,22 +94,22 @@ void Grid::Draw() {
     } else {
         // Calculate grid bounds for highlight check
         Vector2 topLeft = GetScreenToWorld2D({ panelWidth, sceneTabHeight }, GridCamera);
-        Vector2 bottomRight = GetScreenToWorld2D({ (float)screenWidth, (float)screenHeight }, GridCamera);
+        Vector2 bottomRight = GetScreenToWorld2D({ static_cast<float>(screenWidth), static_cast<float>(screenHeight) }, GridCamera);
 
-        startX = (int)std::ceil(topLeft.x / static_cast<float>(tileSize));
-        endX = (int)(bottomRight.x / static_cast<float>(tileSize));
-        startY = (int)std::ceil(topLeft.y / static_cast<float>(tileSize));
-        endY = (int)(bottomRight.y / static_cast<float>(tileSize));
+        startX = static_cast<int>(std::ceil(topLeft.x / static_cast<float>(gridTileSize)));
+        endX = static_cast<int>(bottomRight.x / static_cast<float>(gridTileSize));
+        startY = static_cast<int>(std::ceil(topLeft.y / static_cast<float>(gridTileSize)));
+        endY = static_cast<int>(bottomRight.y / static_cast<float>(gridTileSize));
 
         if (startX < 0) startX = 0;
         if (startY < 0) startY = 0;
     }
 
-    Rectangle sourceRect = {
+    const Rectangle sourceRect = {
         0.0f,
         0.0f,
-        (float)gridTexture.texture.width,
-        -(float)gridTexture.texture.height
+        static_cast<float>(gridTexture.texture.width),
+        -static_cast<float>(gridTexture.texture.height)
     };
 
     Vector2 position = { 0.0f, 0.0f };
@@ -120,15 +120,15 @@ void Grid::Draw() {
     Vector2 mouseScreen = GetMousePosition();
     if (mouseScreen.x > panelWidth && mouseScreen.y < panelHeight) {
         Vector2 mouseWorld = GetScreenToWorld2D(mouseScreen, GridCamera);
-        int cellX = (int)(mouseWorld.x / static_cast<float>(tileSize));
-        int cellY = (int)(mouseWorld.y / static_cast<float>(tileSize));
+        const int cellX = static_cast<int>(mouseWorld.x / static_cast<float>(gridTileSize));
+        const int cellY = static_cast<int>(mouseWorld.y / static_cast<float>(gridTileSize));
 
         if (cellX >= startX && cellX <= endX && cellY >= startY && cellY <= endY) {
-            int cellScreenX = cellX * tileSize;
-            int cellScreenY = cellY * tileSize;
+            const int cellScreenX = cellX * gridTileSize;
+            const int cellScreenY = cellY * gridTileSize;
 
             BeginMode2D(GridCamera);
-            DrawRectangle(cellScreenX, cellScreenY, tileSize, tileSize, highlightColor);
+            DrawRectangle(cellScreenX, cellScreenY, gridTileSize, gridTileSize, highlightColor);
             EndMode2D();
         }
     }

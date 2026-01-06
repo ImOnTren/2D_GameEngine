@@ -187,8 +187,8 @@ void Engine::HandleTilePlacement()
     TileMap& tileMap = scene->GetTileMap();
 
     int tileSize = grid.GetTileSize();
-    int gridX = static_cast<int>(worldPos.x / tileSize);
-    int gridY = static_cast<int>(worldPos.y / tileSize);
+    int gridX = static_cast<int>(worldPos.x) / tileSize;
+    int gridY = static_cast<int>(worldPos.y) / tileSize;
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
@@ -196,7 +196,7 @@ void Engine::HandleTilePlacement()
         tile.tileID = tileToolState.tileset->id;
         tile.tileIndex = tileToolState.selectedTileIndex;
 
-        tileMap.SetTile(gridX, gridY, tile);
+        tileMap.SetTile(gridX, gridY, tile, tileToolState.activeLayer);
 
         UI::SetDebugMessage("[INFO] Tile placed at (" + std::to_string(gridX) + ", " + std::to_string(gridY) + ")");
     }
@@ -212,14 +212,14 @@ void Engine::HandleTileRemoval()
     TileMap& tileMap = scene->GetTileMap();
 
     int tileSize = grid.GetTileSize();
-    int GridX = static_cast<int>(worldPos.x / tileSize);
-    int GridY = static_cast<int>(worldPos.y / tileSize);
+    int GridX = static_cast<int>(worldPos.x) / tileSize;
+    int GridY = static_cast<int>(worldPos.y) / tileSize;
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
         if (tileMap.HasTile(GridX, GridY))
         {
-            tileMap.RemoveTile(GridX, GridY);
+            tileMap.RemoveTileFromLayer(GridX, GridY, tileToolState.activeLayer);
             UI::SetDebugMessage("[INFO] Tile removed at (" + std::to_string(GridX) + ", " + std::to_string(GridY) + ")");
         }
         else
@@ -227,6 +227,147 @@ void Engine::HandleTileRemoval()
             UI::SetDebugMessage("[INFO] No tile to remove at (" + std::to_string(GridX) + ", " + std::to_string(GridY) + ")");
         }
     }
+}
+
+void Engine::DrawEditModeTiles()
+{
+    int tileSize = grid.GetTileSize();
+    Scene* scene = GetCurrentScene();
+    TileMap& tileMap = scene->GetTileMap();
+
+    for (const auto& [key, tileDataVec] : tileMap.GetAllTiles()) {
+        const int x = static_cast<int>(key >> 32);
+        const int y = static_cast<int>(key & 0xFFFFFFFF);
+        std::vector<TileData> tilesAtPos = tileMap.GetTilesAtPosition(x, y);
+
+        for (const auto& tileData : tilesAtPos) {
+            Asset* asset = assetManager.GetAsset(tileData.tileID);
+            if (!asset || !asset->loaded) continue;
+
+            const Rectangle sourceRect = assetManager.GetSpecificSprite(asset, tileData.tileIndex);
+            const Rectangle destRect = {
+                static_cast<float>(x * tileSize),
+                static_cast<float>(y * tileSize),
+                static_cast<float>(tileSize),
+                static_cast<float>(tileSize)
+            };
+
+            DrawTexturePro(asset->texture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);
+        }
+    }
+}
+
+void Engine::DrawPlayModeTiles()
+{
+    if (!playModeTileMap) return;
+
+    const int tileSize = grid.GetTileSize();
+
+    for (const auto& [key, tileData] : playModeTileMap->GetAllTiles()) {
+        const int x = static_cast<int>(key >> 32);
+        const int y = static_cast<int>(key & 0xFFFFFFFF);
+        std::vector<TileData> tilesAtPos = playModeTileMap->GetTilesAtPosition(x, y);
+
+        for (const auto& tile : tilesAtPos) {
+            Asset* asset = assetManager.GetAsset(tile.tileID);
+            if (!asset || !asset->loaded) continue;
+
+            const Rectangle sourceRect = assetManager.GetSpecificSprite(asset, tile.tileIndex);
+            const Rectangle destRect = {
+                static_cast<float>(x * tileSize),
+                static_cast<float>(y * tileSize),
+                static_cast<float>(tileSize),
+                static_cast<float>(tileSize)
+            };
+            //DrawTextureRec(asset->texture, destRect, {0, 0}, WHITE);
+            DrawTexturePro(asset->texture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);
+        }
+    }
+}
+
+void Engine::DrawHoveredTileLayerInfo() {
+    if (currentMode != Mode::EDIT || IsMouseOverUI()) return;
+
+    Vector2 mouseScreen = GetMousePosition();
+    Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
+
+    const int tileSize = grid.GetTileSize();
+    const int gridX = static_cast<int>(worldPos.x) / tileSize;
+    const int gridY = static_cast<int>(worldPos.y) / tileSize;
+
+    Scene* scene = GetCurrentScene();
+    if (!scene) return;
+
+    const TileMap& tileMap = scene->GetTileMap();
+    const std::vector<TileData> tilesAtPos = tileMap.GetTilesAtPosition(gridX, gridY);
+
+    if (tilesAtPos.empty()) return;
+
+    // Layer colors
+    Color layerColors[5] = {
+        {50, 100, 200, 200},   // Layer 0: Blue (Background)
+        {50, 200, 50, 200},    // Layer 1: Green (Ground)
+        {200, 150, 50, 200},   // Layer 2: Orange (Decoration)
+        {200, 50, 150, 200},   // Layer 3: Pink (Foreground)
+        {150, 50, 200, 200}    // Layer 4: Purple (Overlay)
+    };
+
+    // Draw colored squares in the corner of the hovered cell
+    const float cellX = static_cast<float>(gridX * tileSize);
+    const float cellY = static_cast<float>(gridY * tileSize);
+    float indicatorSize = static_cast<float>(tileSize) / 5.0f;
+    float padding = 2.0f;
+
+    int indicatorCount = 0;
+    for (const auto& tile : tilesAtPos) {
+        if (tile.layer >= 0 && tile.layer < 5) {
+            float offsetX = cellX + padding + (static_cast<float>(indicatorCount) * (indicatorSize + 1));
+            float offsetY = cellY + padding;
+
+            // Draw indicator square
+            DrawRectangle(
+                static_cast<int>(offsetX),
+                static_cast<int>(offsetY),
+                static_cast<int>(indicatorSize),
+                static_cast<int>(indicatorSize),
+                layerColors[tile.layer]
+            );
+
+            // Highlight current active layer
+            if (tile.layer == tileToolState.activeLayer) {
+                DrawRectangleLinesEx(
+                    {offsetX, offsetY, indicatorSize, indicatorSize},
+                    1.0f,
+                    WHITE
+                );
+            }
+
+            indicatorCount++;
+        }
+    }
+
+    // Draw hover outline on the cell
+    DrawRectangleLinesEx(
+        {cellX, cellY, static_cast<float>(tileSize), static_cast<float>(tileSize)},
+        2.0f,
+        YELLOW
+    );
+}
+
+void Engine::SetCurrentTileLayer(int layer) {
+    tileToolState.activeLayer = layer;
+}
+
+int Engine::GetCurrentTileLayer() const {
+    return tileToolState.activeLayer;
+}
+
+void Engine::CycleLayerUp() {
+    tileToolState.activeLayer--;
+}
+
+void Engine::CycleLayerDown() {
+    tileToolState.activeLayer++;
 }
 
 //===============================================
@@ -251,56 +392,6 @@ void Engine::HandleAssetPlacement(){
 
 }
 
-
-void Engine::DrawEditModeTiles()
-{
-    int tileSize = grid.GetTileSize();
-    Scene* scene = GetCurrentScene();
-    TileMap& tileMap = scene->GetTileMap();
-
-    for (const auto& [key, tileData] : tileMap.GetAllTiles()) {
-        int x = static_cast<int>(key >> 32);
-        int y = static_cast<int>(key & 0xFFFFFFFF);
-
-        Asset* asset = assetManager.GetAsset(tileData.tileID);
-        if (!asset || !asset->loaded) continue;
-
-        Rectangle sourceRect = assetManager.GetSpecificSprite(asset, tileData.tileIndex);
-        Rectangle destRect = {
-            static_cast<float>(x * tileSize),
-            static_cast<float>(y * tileSize),
-            static_cast<float>(tileSize),
-            static_cast<float>(tileSize)
-        };
-
-        DrawTexturePro(asset->texture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);
-    }
-}
-
-void Engine::DrawPlayModeTiles()
-{
-    if (!playModeTileMap) return;
-
-    int tileSize = grid.GetTileSize();
-
-    for (const auto& [key, tileData] : playModeTileMap->GetAllTiles()) {
-        int x = static_cast<int>(key >> 32);
-        int y = static_cast<int>(key & 0xFFFFFFFF);
-
-        Asset* asset = assetManager.GetAsset(tileData.tileID);
-        if (!asset || !asset->loaded) continue;
-
-        Rectangle sourceRect = assetManager.GetSpecificSprite(asset, tileData.tileIndex);
-        Rectangle destRect = {
-            static_cast<float>(x * tileSize),
-            static_cast<float>(y * tileSize),
-            static_cast<float>(tileSize),
-            static_cast<float>(tileSize)
-        };
-        //DrawTextureRec(asset->texture, destRect, {0, 0}, WHITE);
-        DrawTexturePro(asset->texture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);
-    }
-}
 //===============================================
 //               Scene Management               =
 //===============================================
@@ -643,6 +734,7 @@ void Engine::Run() {
         if (currentMode != Mode::PLAY){
             BeginMode2D(grid.GetCamera());
             DrawEditModeTiles();
+            DrawHoveredTileLayerInfo();
 
             if (editModeCameraArea.width > 0 && editModeCameraArea.height > 0) {
                 DrawRectangleLinesEx(editModeCameraArea, 2.0f, GREEN);
@@ -679,7 +771,7 @@ void Engine::Run() {
     }
 }
 
-void Engine::Shutdown() {
+void Engine::Shutdown() const {
     if (playModeTexture.id != 0) {
         UnloadRenderTexture(playModeTexture);
     }
