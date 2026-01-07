@@ -35,7 +35,6 @@ static json SerializeTileMap(const TileMap& tileMap) {
         int x = static_cast<int>(key >> 32);
         int y = static_cast<int>(key & 0xFFFFFFFF);
         std::vector<TileData> tilesAtPos = tileMap.GetTilesAtPosition(x, y);
-        json tileJsonHelper;
         for (const auto& tile : tilesAtPos) {
             json tileJson;
             tileJson["x"] = x;
@@ -47,9 +46,8 @@ static json SerializeTileMap(const TileMap& tileMap) {
             tileJson["targetSceneID"] = tile.targetSceneID;
             tileJson["triggerKey"] = tile.triggerKey;
             tileJson["layer"] = tile.layer;
-            tileJsonHelper = tileJson;
+            j.push_back(tileJson);
         }
-        j.push_back(tileJsonHelper);
     }
     return j;
 }
@@ -73,16 +71,26 @@ static json SerializeEntities(const std::vector<std::unique_ptr<Entity>>& entiti
     return j;
 }
 
-bool SaveLoad::SaveProject(Engine& engine, const std::string& filepath) {
+bool SaveLoad::SaveProject(Engine& engine, const std::string& filename) {
     try {
         json projectRoot;
-        projectRoot["version"] = "1.0";
+        projectRoot["version"] = "1.1";
 
         json engineJson;
         engineJson["selectedResolutionIndex"] = engine.GetSelectedResolutionIndex();
         engineJson["currentSceneIndex"] = engine.GetCurrentSceneIndex();
         engineJson["nextSceneId"] = engine.GetNextSceneId();
         engineJson["startingSceneID"] = engine.GetStartingSceneID();
+        engineJson["totalLayers"] = engine.GetTotalLayers();
+        engineJson["activeLayer"] = engine.GetCurrentTileLayer();
+
+        // Save layer visibility
+        json layerVisibilityJson = json::array();
+        for (int i = 0; i < engine.GetTotalLayers(); i++) {
+            layerVisibilityJson.push_back(engine.IsLayerVisible(i));
+        }
+        engineJson["layerVisibility"] = layerVisibilityJson;
+
         projectRoot["engine"] = engineJson;
 
         json scenesJson = json::array();
@@ -98,13 +106,13 @@ bool SaveLoad::SaveProject(Engine& engine, const std::string& filepath) {
             scenesJson.push_back(sceneJson);
         }
         projectRoot["scenes"] = scenesJson;
-        std::ofstream fout(filepath);
+        std::ofstream fout(filename);
         if (fout) {
             fout << projectRoot.dump(4);
             UI::SetDebugMessage("Successfully created project.json");
             return true;
         }
-        UI::SetDebugMessage("[ERROR] Could not open file for writing: " + filepath);
+        UI::SetDebugMessage("[ERROR] Could not open file for writing: " + filename);
         return false;
     } catch (const std::exception& e) {
         UI::SetDebugMessage("[ERROR] Failed to save project: " + std::string(e.what()));
@@ -173,6 +181,25 @@ bool SaveLoad::LoadProject(Engine& engine, const std::string& filepath) {
                             editModeEntities.push_back(
                                 std::make_unique<EnemyEntity>(engine.GetGrid(), gridX, gridY)
                             );
+                        }
+                    }
+                }
+            }
+            if (engineJson.contains("totalLayers")) {
+                int totalLayers = engineJson.value("totalLayers", 5);
+                engine.SetTotalLayers(totalLayers);
+            }
+
+            if (engineJson.contains("activeLayer")) {
+                engine.SetCurrentTileLayer(engineJson.value("activeLayer", 0));
+            }
+
+            if (engineJson.contains("layerVisibility")) {
+                const auto& visibilityArray = engineJson["layerVisibility"];
+                if (visibilityArray.is_array()) {
+                    for (size_t i = 0; i < visibilityArray.size(); i++) {
+                        if (i < static_cast<size_t>(engine.GetTotalLayers())) {
+                            engine.SetLayerVisible(static_cast<int>(i), visibilityArray[i]);
                         }
                     }
                 }

@@ -9,6 +9,7 @@ Engine::Engine() : playerManager(grid), enemyManager(grid) {
     playerCamera.zoom = 1.0f;
     playModeTexture = {0};
     playModeWindowOpen = false;
+    layerVisibility.resize(MAX_LAYERS, true);
     HandleSceneCreation();
     UpdatePlayerCamera();
 }
@@ -37,6 +38,9 @@ void Engine::LoadAssets()
     assetManager.LoadAsset("water_tileset", "Water_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
     assetManager.LoadAsset("caves_tileset", "Caves_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Caves.png", 16, 16);
     assetManager.LoadAsset("broken_house1", "Broken_House_1_texture", "Static Texture", "../src/assets/Exterior/Houses/4.png");
+    assetManager.LoadAsset("broken_house2", "Broken_House_2_texture", "Static Texture", "../src/assets/Exterior/Houses/3.png");
+    assetManager.LoadAsset("broken_house3", "Broken_House_3_texture", "Static Texture", "../src/assets/Exterior/Houses/2.png");
+    assetManager.LoadAsset("broken_house4", "Broken_House_4_texture", "Static Texture", "../src/assets/Exterior/Houses/1.png");
 }
 
 
@@ -46,7 +50,7 @@ bool Engine::IsMouseOverUI() const {
 }
 
 void Engine::HandleEditModeInput() {
-    if (currentMode != Mode::EDIT || IsMouseOverUI()) return;
+    if (currentMode != Mode::EDIT) return;
 
     switch (currentTool) {
         case ToolState::PLACING_PLAYER:
@@ -68,10 +72,13 @@ void Engine::HandleEditModeInput() {
             HandleTileRemoval();
             break;
         case ToolState::PLACING_ASSET:
+            UpdateAssetPlacementPreview();
             HandleAssetPlacement();
             break;
         case ToolState::NONE:
-            grid.Update();
+            if (!IsMouseOverUI()) {
+                grid.Update();
+            }
             break;
     }
 }
@@ -195,6 +202,7 @@ void Engine::HandleTilePlacement()
         TileData tile;
         tile.tileID = tileToolState.tileset->id;
         tile.tileIndex = tileToolState.selectedTileIndex;
+        tile.layer = tileToolState.activeLayer;
 
         tileMap.SetTile(gridX, gridY, tile, tileToolState.activeLayer);
 
@@ -240,11 +248,19 @@ void Engine::DrawEditModeTiles()
         const int y = static_cast<int>(key & 0xFFFFFFFF);
         std::vector<TileData> tilesAtPos = tileMap.GetTilesAtPosition(x, y);
 
-        for (const auto& tileData : tilesAtPos) {
-            Asset* asset = assetManager.GetAsset(tileData.tileID);
+        for (const auto& tile : tilesAtPos) {
+            if (tile.layer >= 0 && tile.layer < tileToolState.totalLayers) {
+                if (!layerVisibility[tile.layer]) {
+                    continue; // Skip hidden layers
+                }
+            } else {
+                continue;
+            }
+
+            const Asset* asset = assetManager.GetAsset(tile.tileID);
             if (!asset || !asset->loaded) continue;
 
-            const Rectangle sourceRect = assetManager.GetSpecificSprite(asset, tileData.tileIndex);
+            const Rectangle sourceRect = assetManager.GetSpecificSprite(asset, tile.tileIndex);
             const Rectangle destRect = {
                 static_cast<float>(x * tileSize),
                 static_cast<float>(y * tileSize),
@@ -269,6 +285,14 @@ void Engine::DrawPlayModeTiles()
         std::vector<TileData> tilesAtPos = playModeTileMap->GetTilesAtPosition(x, y);
 
         for (const auto& tile : tilesAtPos) {
+            if (tile.layer >= 0 && tile.layer < tileToolState.totalLayers) {
+                if (!layerVisibility[tile.layer]) {
+                    continue; // Skip hidden layers
+                }
+            } else {
+                continue;
+            }
+
             Asset* asset = assetManager.GetAsset(tile.tileID);
             if (!asset || !asset->loaded) continue;
 
@@ -304,18 +328,19 @@ void Engine::DrawHoveredTileLayerInfo() {
     if (tilesAtPos.empty()) return;
 
     // Layer colors
-    Color layerColors[5] = {
-        {50, 100, 200, 200},   // Layer 0: Blue (Background)
-        {50, 200, 50, 200},    // Layer 1: Green (Ground)
-        {200, 150, 50, 200},   // Layer 2: Orange (Decoration)
-        {200, 50, 150, 200},   // Layer 3: Pink (Foreground)
-        {150, 50, 200, 200}    // Layer 4: Purple (Overlay)
-    };
+    std::vector<Color> layerColors;
+    for (int i = 0; i < tileToolState.totalLayers; i++) {
+        // Generate distinct colors for each layer
+        float hue = static_cast<float>(i) / std::max(1.0f, static_cast<float>(tileToolState.totalLayers - 1));
+        Color color = ColorFromHSV(hue * 360.0f, 0.8f, 0.9f);
+        color.a = 200;  // Semi-transparent
+        layerColors.push_back(color);
+    }
 
     // Draw colored squares in the corner of the hovered cell
     const float cellX = static_cast<float>(gridX * tileSize);
     const float cellY = static_cast<float>(gridY * tileSize);
-    float indicatorSize = static_cast<float>(tileSize) / 5.0f;
+    const float indicatorSize = static_cast<float>(tileSize) / 5.0f;
     float padding = 2.0f;
 
     int indicatorCount = 0;
@@ -354,20 +379,137 @@ void Engine::DrawHoveredTileLayerInfo() {
     );
 }
 
-void Engine::SetCurrentTileLayer(int layer) {
-    tileToolState.activeLayer = layer;
+void Engine::SetCurrentTileLayer(const int layer) {
+    if (layer >= 0 && layer < tileToolState.totalLayers) {
+        tileToolState.activeLayer = layer;
+    }
 }
 
 int Engine::GetCurrentTileLayer() const {
     return tileToolState.activeLayer;
 }
 
+int Engine::GetTotalLayers() const {
+    return tileToolState.totalLayers;
+}
+
+
 void Engine::CycleLayerUp() {
     tileToolState.activeLayer--;
+    if (tileToolState.activeLayer < 0) {
+        tileToolState.activeLayer = tileToolState.totalLayers - 1;
+    }
 }
 
 void Engine::CycleLayerDown() {
     tileToolState.activeLayer++;
+    if (tileToolState.activeLayer >= MAX_LAYERS) {
+        tileToolState.activeLayer = 0;
+    }
+}
+
+bool Engine::IsLayerVisible(const int layer) const {
+    if (layer >= 0 && layer < MAX_LAYERS) {
+        return layerVisibility[layer];
+    }
+    return false;
+}
+
+void Engine::SetLayerVisible(const int layer, const bool visible) {
+    if (layer >= 0 && layer < MAX_LAYERS) {
+        layerVisibility[layer] = visible;
+    }
+}
+
+void Engine::ToggleLayerVisibility(const int layer) {
+    if (layer >= 0 && layer < MAX_LAYERS) {
+        layerVisibility[layer] = !layerVisibility[layer];
+    }
+}
+
+void Engine::SetTotalLayers(const int count) {
+    if (count >= 1 && count <= MAX_LAYERS) {
+        const int oldCount = tileToolState.totalLayers;
+        tileToolState.totalLayers = count;
+
+        // Resize layer visibility vector
+        layerVisibility.resize(count, true);
+
+        // If we reduced layers, adjust active layer if needed
+        if (tileToolState.activeLayer >= count) {
+            tileToolState.activeLayer = count - 1;
+        }
+
+        UI::SetDebugMessage("[LAYERS] Changed total layers from " +
+                           std::to_string(oldCount) + " to " + std::to_string(count));
+    }
+}
+
+void Engine::AddLayer() {
+    if (tileToolState.totalLayers < MAX_LAYERS) {
+        tileToolState.totalLayers++;
+        layerVisibility.push_back(true);  // New layer is visible by default
+
+        UI::SetDebugMessage("[LAYERS] Added layer " + std::to_string(tileToolState.totalLayers - 1) +
+                           ". Total: " + std::to_string(tileToolState.totalLayers));
+    } else {
+        UI::SetDebugMessage("[WARNING] Maximum layer limit reached (" +
+                           std::to_string(MAX_LAYERS) + ")");
+    }
+}
+
+bool Engine::CanRemoveLayer() const {
+    // Only allow removing if we have more than 1 layer
+    if (tileToolState.totalLayers <= 1) {
+        return false;
+    }
+
+    // Check if the last layer is empty
+    Scene* scene = const_cast<Engine*>(this)->GetCurrentScene();
+    if (!scene) return false;
+
+    // Check tiles in the last layer
+    TileMap& tileMap = scene->GetTileMap();
+    const auto& allTiles = tileMap.GetAllTiles();
+
+    int lastLayer = tileToolState.totalLayers - 1;
+    for (const auto& [key, tileVec] : allTiles) {
+        for (const auto& tile : tileVec) {
+            if (tile.layer == lastLayer) {
+                return false;
+            }
+        }
+    }
+
+    // Check entities in the last layer
+    auto& entities = scene->GetEditModeEntities();
+    for (const auto& entity : entities) {
+        if (auto* staticEntity = dynamic_cast<StaticEntity*>(entity.get())) {
+            if (staticEntity->GetLayer() == lastLayer) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+void Engine::RemoveLayer() {
+    if (!CanRemoveLayer()) {
+        UI::SetDebugMessage("[WARNING] Cannot remove layer. Ensure layer is empty and there's more than 1 layer.");
+        return;
+    }
+
+    tileToolState.totalLayers--;
+    layerVisibility.pop_back();
+
+    // Adjust active layer if it was the removed one
+    if (tileToolState.activeLayer >= tileToolState.totalLayers) {
+        tileToolState.activeLayer = tileToolState.totalLayers - 1;
+    }
+
+    UI::SetDebugMessage("[LAYERS] Removed layer. Total: " +
+                       std::to_string(tileToolState.totalLayers));
 }
 
 //===============================================
@@ -381,15 +523,54 @@ void Engine::HandleAssetPlacement(){
         Vector2 mouseScreen = GetMousePosition();
         Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
 
-        auto *newAsset = new StaticEntity(grid, assetToolState.asset,
-                                      static_cast<int>(worldPos.x) / grid.GetTileSize(),
-                                      static_cast<int>(worldPos.y) / grid.GetTileSize());
-        scene->GetEditModeEntities().emplace_back(newAsset);
+        const int tileSize = grid.GetTileSize();
+        const int gridCellX = static_cast<int>(worldPos.x) / tileSize;
+        const int gridCellY = static_cast<int>(worldPos.y) / tileSize;
+
+        scene->GetEditModeEntities().emplace_back(
+            std::make_unique<StaticEntity>(grid, assetToolState.asset, gridCellX, gridCellY, tileToolState.activeLayer)
+        );
         UI::SetDebugMessage("[INFO] Placed asset '" + assetToolState.asset->name + "' at (" +
                             std::to_string(static_cast<int>(worldPos.x) / grid.GetTileSize()) + ", " +
                             std::to_string(static_cast<int>(worldPos.y) / grid.GetTileSize()) + ")");
     }
+}
 
+void Engine::UpdateAssetPlacementPreview() {
+    if (currentTool == ToolState::PLACING_ASSET && assetToolState.asset && !IsMouseOverUI()) {
+        Vector2 mouseScreen = GetMousePosition();
+        Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
+
+        const int tileSize = grid.GetTileSize();
+
+        // Calculate the grid cell position
+        const int gridX = static_cast<int>(worldPos.x) / tileSize;
+        const int gridY = static_cast<int>(worldPos.y) / tileSize;
+
+        // Convert back to pixel position for preview
+        assetToolState.previewPosition = {
+            static_cast<float>(gridX * tileSize),
+            static_cast<float>(gridY * tileSize)
+        };
+
+        assetToolState.showPreview = true;
+    } else {
+        // Hide preview when not placing or mouse is over UI
+        assetToolState.showPreview = false;
+    }
+}
+
+void Engine::DrawAssetPlacementPreview() const {
+    if (assetToolState.showPreview && assetToolState.asset) {
+        const Rectangle sourceRect = {0, 0, static_cast<float>(assetToolState.asset->texture.width), static_cast<float>(assetToolState.asset->texture.height)};
+        const float previewX = assetToolState.previewPosition.x +
+                        (static_cast<float>(grid.GetTileSize() - assetToolState.asset->texture.width)) / 2.0f;
+        const float previewY = assetToolState.previewPosition.y +
+                        (static_cast<float>(grid.GetTileSize() - assetToolState.asset->texture.height)) / 2.0f;
+        const Rectangle destRect = {previewX, previewY, static_cast<float>(assetToolState.asset->texture.width), static_cast<float>(assetToolState.asset->texture.height)};
+        DrawTexturePro(assetToolState.asset->texture, sourceRect, destRect, {0, 0}, 0.0f, Fade(WHITE, assetToolState.previewAlpha));
+        DrawRectangleLinesEx(destRect, 2.0f, YELLOW);
+    }
 }
 
 //===============================================
@@ -741,8 +922,26 @@ void Engine::Run() {
                 DrawRectangleRec(editModeCameraArea, Fade(GREEN, 0.1f));
             }
             for (auto& entity : editModeEntities) {
-                entity->Draw();
+                bool shouldDraw = true;
+
+                if (auto* staticEntity = dynamic_cast<StaticEntity*>(entity.get())) {
+                    int entityLayer = staticEntity->GetLayer();
+                    if (entityLayer >= 0 && entityLayer < tileToolState.totalLayers) {
+                        shouldDraw = layerVisibility[entityLayer];
+                    }
+                }
+                // TODO: Add similar checks for PlayerEntity and EnemyEntity
+                /*else if (auto* playerEntity = dynamic_cast<PlayerEntity*>(entity.get())) {
+                    shouldDraw = layerVisibility[playerEntity->GetLayer()];
+                }
+                else if (auto* enemyEntity = dynamic_cast<EnemyEntity*>(entity.get())) {
+                    shouldDraw = layerVisibility[enemyEntity->GetLayer()];
+                }*/
+                if (shouldDraw) {
+                    entity->Draw();
+                }
             }
+            DrawAssetPlacementPreview();
             EndMode2D();
         }
 
@@ -753,7 +952,18 @@ void Engine::Run() {
             BeginMode2D(playerCamera);
             DrawPlayModeTiles();
             for (auto& entity : playModeSnapshots) {
-                entity->Draw();
+                bool shouldDraw = true;
+
+                if (auto* staticEntity = dynamic_cast<StaticEntity*>(entity.get())) {
+                    int entityLayer = staticEntity->GetLayer();
+                    if (entityLayer >= 0 && entityLayer < tileToolState.totalLayers) {
+                        shouldDraw = layerVisibility[entityLayer];
+                    }
+                }
+
+                if (shouldDraw) {
+                    entity->Draw();
+                }
             }
             EndMode2D();
             EndTextureMode();

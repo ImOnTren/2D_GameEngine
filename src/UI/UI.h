@@ -20,6 +20,7 @@ public:
     static void RenderAssetConsole(Engine& engine);
     static void RenderPlayModeWindow(Engine& engine);
     static void RenderNewSceneTab(Engine& engine);
+
     static std::string GetAssetTypeName(AssetType type);
 
     static void SetDebugMessage(const std::string& text) {
@@ -47,6 +48,7 @@ private:
     static void RenderTileSelectionWindow(Engine& engine, Asset* tileset);
     static void RenderTilesetGrid(Asset* tileset);
     static void RenderTileSceneContext(Engine& engine, const Grid& grid);
+    static void RenderLayerVisibilityControls(Engine& engine);
     static std::vector<std::string> DebugMessages;
 
     static std::string selectedCategory;
@@ -64,14 +66,5 @@ private:
     static int tilesetTileWidth;
     static int tilesetTileHeight;
     static bool tileMapModified;
-
-    static constexpr int MAX_LAYERS = 5;
-    static constexpr const char* LAYER_NAMES[MAX_LAYERS] = {
-        "Background",
-        "Ground",
-        "Decoration",
-        "Foreground",
-        "Overlay"
-    };
 
 };

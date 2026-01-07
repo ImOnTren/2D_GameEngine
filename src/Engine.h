@@ -38,6 +38,23 @@ public:
     bool playModeWindowOpen = false;
     RenderTexture2D playModeTexture;
 
+    static constexpr int MAX_LAYERS = 20;
+    std::vector<bool> layerVisibility;
+
+    // Layer management API
+    bool IsLayerVisible(int layer) const;
+    void SetLayerVisible(int layer, bool visible);
+    void ToggleLayerVisibility(int layer);
+    int GetTotalLayers() const;
+    void SetTotalLayers(int count);
+    void AddLayer();
+    void RemoveLayer();
+    bool CanRemoveLayer() const;
+    void SetCurrentTileLayer(int layer);
+    int GetCurrentTileLayer() const;
+    void CycleLayerUp();
+    void CycleLayerDown();
+
     // Camera resolution settings
     struct CameraResolution {
         int width;
@@ -50,11 +67,15 @@ public:
         int selectedTileIndex = -1;
         bool isPlacingTile = false;
         int activeLayer = 0;
+        int totalLayers = 5;
     } tileToolState;
 
     struct {
         Asset* asset = nullptr;
         bool isPlacing = false;
+        bool showPreview = false;
+        Vector2 previewPosition = {0, 0};
+        float previewAlpha = 0.5f;
     } assetToolState;
 
     std::vector<CameraResolution> availableResolutions = {
@@ -208,11 +229,6 @@ public:
         HandleSceneDeletion(sceneIndex);
     }
 
-    void SetCurrentTileLayer(int layer);
-    int GetCurrentTileLayer() const;
-    void CycleLayerUp();
-    void CycleLayerDown();
-
     void StartPlayMode();
     void StopPlayMode();
 
@@ -239,6 +255,8 @@ private:
     void HandleTileRemoval();
     void DrawHoveredTileLayerInfo();
     void HandleAssetPlacement();
+    void UpdateAssetPlacementPreview();
+    void DrawAssetPlacementPreview() const;
     void HandleSceneCreation();
     void HandleSceneDeletion(const int& index);
     void ChangeScene(const std::string& targetSceneID, int spawnGridX, int spawnGridY);

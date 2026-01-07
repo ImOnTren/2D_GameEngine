@@ -24,7 +24,7 @@ void UI::RenderControlPanel(Engine& engine, const Grid& grid) {
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 4.0f, io.DisplaySize.y - io.DisplaySize.y / 4.0f));
     ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::Begin("Control panel", nullptr);
+    ImGui::Begin("Control Panel##MainWindow", nullptr);
     RenderModeControls(engine);
     RenderCameraResolutionControls(engine);
     RenderTileSceneContext(engine, grid);
@@ -36,7 +36,7 @@ void UI::RenderDebugConsole() {
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 4.0f, io.DisplaySize.y / 4.0f));
     ImGui::SetNextWindowPos(ImVec2(0, io.DisplaySize.y - io.DisplaySize.y / 4.0f));
-    ImGui::Begin("Debug console", nullptr);
+    ImGui::Begin("Debug Console##DebugWindow", nullptr);
     if (ImGui::Button("Clear Console")) {
         ClearDebugMessages();
     }
@@ -46,7 +46,7 @@ void UI::RenderDebugConsole() {
     ImGui::Separator();
 
     // Create a child window for scrolling
-    ImGui::BeginChild("ScrollingRegion", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::BeginChild("ScrollingRegion##DebugConsole", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_HorizontalScrollbar);
 
     // Display all messages (oldest first, newest at bottom)
     for (const auto& message : DebugMessages) {
@@ -450,7 +450,7 @@ void UI::RenderTileSceneContext(Engine& engine, const Grid& grid) {
         TileMap& tileMap = scene->GetTileMap();
         std::vector<TileData>* tileVecPtr = tileMap.GetTilePtr(contextTileX, contextTileY);
 
-        if (tileVecPtr->empty() || !tileVecPtr) {
+        if (!tileVecPtr || tileVecPtr->empty()) {
             ImGui::Text("No tile at this position");
             ImGui::EndPopup();
             return;
@@ -468,7 +468,7 @@ void UI::RenderTileSceneContext(Engine& engine, const Grid& grid) {
         }
         if (!tile && !tileVecPtr->empty()) {
             tile = &(*tileVecPtr)[0];
-            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Showing tile from layer %d", tile->layer);
+            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Showing tile from layer %d (not active layer %d)", tile->layer, currentLayer);
         }
         if (tile) {
             bool isSolid = tile->isSolid;
@@ -570,7 +570,116 @@ void UI::RenderTileSceneContext(Engine& engine, const Grid& grid) {
     }
 }
 
-std::string UI::GetAssetTypeName(AssetType type) {
+void UI::RenderLayerVisibilityControls(Engine &engine) {
+    // Simple numbered buttons grid
+    int currentLayers = engine.GetTotalLayers();
+    ImGui::Text("Layers:");
+    const float buttonSize = 30.0f;
+
+    for (int i = 0; i < currentLayers; i++) {
+        if (i > 0) ImGui::SameLine();
+
+        bool isVisible = engine.IsLayerVisible(i);
+        int currentLayer = engine.GetCurrentTileLayer();
+        bool isActive = (i == currentLayer);
+
+        // Style the button based on state
+        if (!isVisible) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+        } else if (isActive) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
+        }
+
+        // Create button
+        std::string buttonLabel = std::to_string(i);
+        if (ImGui::Button(buttonLabel.c_str(), ImVec2(buttonSize, buttonSize))) {
+            // Left click: set as active layer
+            engine.SetCurrentTileLayer(i);
+        }
+
+        if (!isVisible || isActive) {
+            ImGui::PopStyleColor();
+        }
+
+        // Right-click context menu for each layer
+        if (ImGui::BeginPopupContextItem()) {
+            // Layer index in the popup title
+            ImGui::Text("Layer %d", i);
+            ImGui::Separator();
+
+            if (ImGui::MenuItem(isVisible ? "Hide" : "Show", nullptr, isVisible)) {
+                engine.ToggleLayerVisibility(i);
+            }
+
+            if (ImGui::MenuItem("Set as Active")) {
+                engine.SetCurrentTileLayer(i);
+            }
+
+            ImGui::Separator();
+
+            /* TODO: IMPLEMENT THIS
+            if (i < Engine::MAX_LAYERS - 1 && Engine::MAX_LAYERS > 1) {
+                if (ImGui::MenuItem("Delete Layer")) {
+                    // Note: This would need to shift all layers above down
+                    // For now, just show the option (we'll implement logic below)
+                    SetDebugMessage("[TODO] Delete layer functionality not implemented yet");
+                }
+            } else if (i == Engine::MAX_LAYERS - 1 && Engine::MAX_LAYERS > 1) {
+                bool canRemove = engine.CanRemoveLayer();
+                if (!canRemove) {
+                    ImGui::BeginDisabled();
+                }
+                if (ImGui::MenuItem("Delete Layer")) {
+                    engine.RemoveLayer();
+                }
+                if (!canRemove) {
+                    ImGui::EndDisabled();
+                }
+                if (ImGui::IsItemHovered() && !canRemove) {
+                    ImGui::SetTooltip("Cannot delete layer: Contains tiles or assets");
+                }
+            }*/
+
+            ImGui::EndPopup();
+        }
+
+        // Tooltip on hover
+        if (ImGui::IsItemHovered()) {
+            ImGui::BeginTooltip();
+            ImGui::Text("Layer %d", i);
+            ImGui::Text("Visible: %s", isVisible ? "Yes" : "No");
+            ImGui::Text("Active: %s", isActive ? "Yes" : "No");
+            ImGui::Text("Left-click: Set active");
+            ImGui::Text("Right-click: Options");
+            ImGui::EndTooltip();
+        }
+    }
+
+    // Add layer button
+    ImGui::Spacing();
+    if (ImGui::Button("+ Add Layer", ImVec2(100, 25))) {
+        if (engine.GetTotalLayers() < Engine::MAX_LAYERS) {
+            engine.AddLayer();
+        }
+    }
+
+    // Quick visibility toggles
+    ImGui::Spacing();
+    ImGui::Text("Quick Actions:");
+    if (ImGui::Button("Show All", ImVec2(80, 25))) {
+        for (int i = 0; i < Engine::MAX_LAYERS; i++) {
+            engine.SetLayerVisible(i, true);
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Hide All", ImVec2(80, 25))) {
+        for (int i = 0; i < Engine::MAX_LAYERS; i++) {
+            engine.SetLayerVisible(i, false);
+        }
+    }
+}
+
+std::string UI::GetAssetTypeName(const AssetType type) {
     switch (type) {
         case AssetType::INDIVIDUAL_TEXTURE: return "Texture";
         case AssetType::ANIMATED_SPRITESHEET: return "Animated Sprite";
@@ -762,8 +871,8 @@ void UI::RenderPlayModeWindow(Engine& engine) {
     //std::cout << io.DisplaySize.x << " " << io.DisplaySize.y << std::endl;
 
     if (ImGui::Begin("Play Mode", &engine.playModeWindowOpen, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
-        ImVec2 contentSize = ImGui::GetContentRegionAvail();
-        std::string fps = "FPS: " + std::to_string(io.Framerate);
+        const ImVec2 contentSize = ImGui::GetContentRegionAvail();
+        const std::string fps = "FPS: " + std::to_string(io.Framerate);
         const char* fpsText = fps.c_str();
         ImGui::Text(fpsText);
         // Calculate UV coordinates to fix inversion
@@ -771,8 +880,8 @@ void UI::RenderPlayModeWindow(Engine& engine) {
         const ImVec2 uv1 = ImVec2(1, 0);
 
         // Maintain aspect ratio
-        float texW = static_cast<float>(engine.playModeTexture.texture.width);
-        float texH = static_cast<float>(engine.playModeTexture.texture.height);
+        const float texW = static_cast<float>(engine.playModeTexture.texture.width);
+        const float texH = static_cast<float>(engine.playModeTexture.texture.height);
 
         // Compute the maximum integer scale that fits in the window
         const float scaleX = std::floor(contentSize.x / texW);
@@ -863,46 +972,21 @@ void UI::RenderModeControls(Engine& engine) {
         ImGui::Text("Layer Controls");
 
         int currentLayer = engine.GetCurrentTileLayer();
-        const char* currentLayerName = (currentLayer >= 0 && currentLayer < MAX_LAYERS)
-            ? LAYER_NAMES[currentLayer] : "Unknown";
+        int totalLayers = engine.GetTotalLayers();
+        ImGui::Text("Active Layer: %d/%d", currentLayer + 1, totalLayers);
 
-        // Visual indicator - colored bar for active layer
-        ImVec4 layerColor = ImVec4(0.2f, 0.6f, 0.9f, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Button, layerColor);
-        ImGui::Button(("Layer " + std::to_string(currentLayer) + ": " + currentLayerName).c_str(), ImVec2(-1, 0));
-        ImGui::PopStyleColor();
-
-        // Layer navigation buttons
         if (ImGui::Button("Layer Up")) {
-            engine.CycleLayerUp();
+            int newLayer = (currentLayer - 1 + totalLayers) % totalLayers;
+            engine.SetCurrentTileLayer(newLayer);
         }
         ImGui::SameLine();
         if (ImGui::Button("Layer Down")) {
-            engine.CycleLayerDown();
+            int newLayer = (currentLayer + 1) % totalLayers;
+            engine.SetCurrentTileLayer(newLayer);
         }
 
-        // Layer quick-select thumbnails
-        ImGui::Text("Quick Select:");
-        for (int i = 0; i < MAX_LAYERS; i++) {
-            if (i > 0) ImGui::SameLine();
-
-            // Highlight active layer
-            if (i == currentLayer) {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
-            }
-
-            if (ImGui::Button((std::to_string(i) + "##layer").c_str(), ImVec2(25, 25))) {
-                engine.SetCurrentTileLayer(i);
-            }
-
-            if (i == currentLayer) {
-                ImGui::PopStyleColor();
-            }
-
-            if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("%s", LAYER_NAMES[i]);
-            }
-        }
+        // Show layer management controls
+        RenderLayerVisibilityControls(engine);
 
         // Layer info for hovered tile
         ImGui::Separator();
@@ -943,7 +1027,7 @@ void UI::RenderModeControls(Engine& engine) {
         ImGui::Separator();
         ImGui::Text("Project:");
         static char filenameBuf[256] = "project.json";
-        ImGui::InputText("Path: ", filenameBuf, sizeof(filenameBuf));
+        ImGui::InputText("Path:", filenameBuf, sizeof(filenameBuf));
         if (ImGui::Button("Save Project", ImVec2(120, 0))) {
             SaveLoad::SaveProject(engine,std::string(filenameBuf));
             SetDebugMessage("[PROJECT] Saved project to " + std::string(filenameBuf));

@@ -23,14 +23,16 @@ bool TileMap::HasTile(int x, int y, int layer){
     return false;
 }
 
-void TileMap::SetTile(int x, int y, const TileData& tile, int layer){
+void TileMap::SetTile(const int x, const int y, const TileData& tile, const int layer){
     uint64_t id = PositionToID(x, y);
     auto& tileLayers = tiles[id];
     // Ensure the vector is large enough
-    if (tileLayers.size() <= layer) {
+    if (tileLayers.size() <= static_cast<size_t>(layer)) {
         tileLayers.resize(layer + 1);
     }
-    tileLayers[layer] = tile;
+    TileData tileWithCorrectLayer = tile;
+    tileWithCorrectLayer.layer = layer;
+    tileLayers[layer] = tileWithCorrectLayer;
 }
 
 TileData TileMap::GetTile(int x, int y, int layer){
@@ -71,7 +73,8 @@ void TileMap::RemoveTileFromLayer(int x, int y, int layer) {
         if (tileVec.empty()) {
             RemoveTile(x, y);
         } else {
-            tiles[PositionToID(x, y)] = tileVec;
+            uint64_t id = PositionToID(x, y);
+            tiles[id] = tileVec;
         }
     }
 }

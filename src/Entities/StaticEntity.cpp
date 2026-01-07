@@ -1,21 +1,31 @@
 #include "StaticEntity.h"
 #include <cmath>
 
-StaticEntity::StaticEntity(Grid& grid, Asset* asset, int gridX, int gridY)
+StaticEntity::StaticEntity(Grid& grid, Asset* asset, const int gridX, const int gridY, const int layer)
     : Entity(
-        { gridX * static_cast<float>(grid.GetTileSize()),
-          gridY * static_cast<float>(grid.GetTileSize()) },
-        { asset && asset->loaded
-              ? static_cast<float>(asset->texture.width)
-              : static_cast<float>(grid.GetTileSize()),
-          asset && asset->loaded
-              ? static_cast<float>(asset->texture.height)
-              : static_cast<float>(grid.GetTileSize()) }
+          {
+              static_cast<float>(gridX) * static_cast<float>(grid.GetTileSize()) +
+              (static_cast<float>(grid.GetTileSize()) -
+               (asset && asset->loaded ? static_cast<float>(asset->texture.width) :
+                    static_cast<float>(grid.GetTileSize()))) / 2.0f,
+
+              static_cast<float>(gridY) * static_cast<float>(grid.GetTileSize()) +
+              (static_cast<float>(grid.GetTileSize()) -
+               (asset && asset->loaded ? static_cast<float>(asset->texture.height) :
+                    static_cast<float>(grid.GetTileSize()))) / 2.0f
+          },
+          {
+              asset && asset->loaded ? static_cast<float>(asset->texture.width) :
+                  static_cast<float>(grid.GetTileSize()),
+              asset && asset->loaded ? static_cast<float>(asset->texture.height) :
+                  static_cast<float>(grid.GetTileSize())
+          }
       ),
       grid(grid),
-      asset(asset),
       cellX(gridX),
-      cellY(gridY)
+      cellY(gridY),
+      asset(asset),
+      layer(layer)
 {
     active = true;
 }
@@ -31,10 +41,10 @@ void StaticEntity::Draw() {
     std::floor(position.x);
     std::floor(position.y);
 
-    Rectangle sourceRect = { 0, 0,
+    const Rectangle sourceRect = { 0, 0,
         static_cast<float>(asset->texture.width),
         static_cast<float>(asset->texture.height) };
-    Rectangle destRect = { position.x, position.y,
+    const Rectangle destRect = { position.x, position.y,
         static_cast<float>(asset->texture.width),
         static_cast<float>(asset->texture.height) };
 
@@ -42,7 +52,7 @@ void StaticEntity::Draw() {
 }
 
 std::unique_ptr<Entity> StaticEntity::CreateSnapshot() const {
-    auto newSnapshot = std::make_unique<StaticEntity>(grid, asset, cellX, cellY);
+    auto newSnapshot = std::make_unique<StaticEntity>(grid, asset, cellX, cellY, layer);
     newSnapshot->SetPosition(position);
     newSnapshot->SetVelocity(velocity);
     newSnapshot->SetSize(size);
@@ -59,5 +69,6 @@ void StaticEntity::RestoreFromSnapshot(const Entity *snapshot) {
         active = staticSnapshot->active;
         cellX = staticSnapshot->cellX;
         cellY = staticSnapshot->cellY;
+        layer = staticSnapshot->layer;
     }
 }

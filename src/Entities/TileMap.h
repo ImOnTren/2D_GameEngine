@@ -42,7 +42,7 @@ public:
 private:
     std::unordered_map<uint64_t, std::vector<TileData>> tiles;
 
-    uint64_t PositionToID(int x, int y) const {
+    uint64_t PositionToID(const int x, const int y) const {
         return (static_cast<uint64_t>(x) << 32) | static_cast<uint64_t>(y);
     }
 };

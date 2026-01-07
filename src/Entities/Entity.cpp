@@ -1,10 +1,10 @@
 #include "Entity.h"
 
-Entity::Entity(Vector2 pos, Vector2 size)
-    : position(pos), velocity({0,0}), size(size), rotation(0), active(true), collisionEnabled(true), collisionMask(0xFFFFFFFF) {
+Entity::Entity(const Vector2 pos, const Vector2 size, const int layer)
+    : position(pos), velocity({0,0}), size(size), rotation(0), active(true), layer(layer),  collisionEnabled(true), collisionMask(0xFFFFFFFF) {
 }
 
-void Entity::Update(float deltaTime) {
+void Entity::Update(const float deltaTime) {
     position.x += velocity.x * deltaTime;
     position.y += velocity.y * deltaTime;
 }

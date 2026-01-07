@@ -10,12 +10,13 @@ protected:
     Vector2 size;
     float rotation;
     bool active;
+    int layer = 0;
 
     bool collisionEnabled;
     unsigned int collisionMask;
 
 public:
-    explicit Entity(Vector2 pos = {0,0}, Vector2 size = {16,16});
+    explicit Entity(Vector2 pos = {0,0}, Vector2 size = {16,16}, int layer = 0);
     virtual ~Entity() = default;
 
     virtual void Update(float deltaTime);
@@ -51,6 +52,8 @@ public:
     void SetCollisionEnabled(bool enabled);
     [[nodiscard]] unsigned int GetCollisionMask() const;
     void SetCollisionMask(const unsigned int& mask);
+    [[nodiscard]] int GetEntityLayer() const { return layer; }
+    void SetEntityLayer(const int newLayer) { layer = newLayer; }
 
-    Rectangle GetBounds() const;
+    [[nodiscard]] Rectangle GetBounds() const;
 };
