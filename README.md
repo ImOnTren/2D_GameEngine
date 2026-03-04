@@ -4,8 +4,13 @@
 
 By combining an intuitive drag-and-drop interface with a robust underlying architecture, Click-Craft Creator bridges the gap between imagination and playable reality. Draw your maps, import your characters, animate them, and hit play—all in real-time.
 
-![Click-Craft Creator Screenshot](placeholder_for_screenshot.png)
-*(Note: Add a cool screenshot or GIF of the engine in Edit Mode here!)*
+### 🛠️ The Level Editor (Edit Mode)
+Design your world using intuitive tools, multi-layered tile maps, and a dynamic asset placement system.
+![Click-Craft Creator Edit Mode](docs/edit_mode_screenshot.png)
+
+### ▶️ Real-Time Testing (Play Mode)
+Hit play to instantly test your game. The engine's snapshot system ensures that any chaos caused during testing is completely reverted the moment you return to the editor.
+![Click-Craft Creator Play Mode](docs/play_mode_screenshot.png)
 
 ---
 
@@ -58,7 +63,7 @@ Click-Craft Creator is built with performance and modularity in mind:
 
 ---
 
-## 🗺️ Development Roadmap
+## Development Roadmap
 
 We are currently working towards a 1-month milestone to finalize the creator experience:
 - [ ] **Interactive Tutorial**: A child-friendly, ImGui-based guided walkthrough of the engine's tools.
