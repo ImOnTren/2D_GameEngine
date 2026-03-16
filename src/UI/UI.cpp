@@ -1,7 +1,7 @@
 #include "UI.h"
 #include <algorithm>
 #include "Engine.h"
-#include "../Managers/LocalizitionManager.h"
+#include "../Managers/LocalizationManager.h"
 #define TR(key) Localization::Get(key)
 
 std::vector<std::string> UI::DebugMessages = {"Welcome To Click-Craft Creator"};

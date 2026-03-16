@@ -4,7 +4,7 @@
 #include "UI/UI.h"
 #include <filesystem>
 #include <algorithm>
-#include "../Managers/LocalizitionManager.h"
+#include "../Managers/LocalizationManager.h"
 
 #define TR(key) Localization::Get(key)
 

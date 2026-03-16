@@ -1,4 +1,4 @@
-#include "../Managers/LocalizitionManager.h"
+#include "../Managers/LocalizationManager.h"
 
 Language Localization::currentLanguage = Language::English;
 bool Localization::initialized = false;
