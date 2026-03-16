@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 4.0)
 project(2D_GameEngine)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -55,8 +55,6 @@ add_executable(2D_GameEngine
         src/main.cpp
         src/UI/UI.cpp
         src/UI/UI.h
-        src/Managers/AssetManager.cpp
-        src/Managers/AssetManager.h
         src/Entities/TileMap.cpp
         src/Entities/TileMap.h
         src/Scene/Scene.cpp
@@ -65,6 +63,19 @@ add_executable(2D_GameEngine
         src/Entities/StaticEntity.h
         src/Project/SaveLoad.cpp
         src/Project/SaveLoad.h
+        src/Animation/Animator.cpp
+        src/Animation/Animator.h
+        src/Animation/Animation.h
+        src/Animation/AnimationEditor.cpp
+        src/Animation/AnimationEditor.h
+        src/AssetManagement/AssetManager.cpp
+        src/AssetManagement/AssetManager.h
+        src/AssetManagement/AssetImporter.cpp
+        src/AssetManagement/AssetImporter.h
+        src/AssetManagement/AssetDefinition.cpp
+        src/AssetManagement/AssetDefinition.h
+        src/Managers/LocalizitionManager.cpp
+        src/Managers/LocalizitionManager.h
 )
 
 target_link_libraries(2D_GameEngine PRIVATE raylib nlohmann_json::nlohmann_json)

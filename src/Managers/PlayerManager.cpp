@@ -41,18 +41,27 @@ bool PlayerManager::PlacePlayer(Vector2 mouseScreen, Camera2D camera,
         return false;
     }
 
+    if (!currentAsset) {
+        UI::SetDebugMessage("[WARNING] No asset selected for player placement.");
+        return false;
+    }
+
     Vector2 mouseWorld = GetScreenToWorld2D(mouseScreen, camera);
     int tileSize = grid.GetTileSize();
     int gridX = static_cast<int>(mouseWorld.x / tileSize);
     int gridY = static_cast<int>(mouseWorld.y / tileSize);
 
-    // Check if cell is occupied
+    if (!grid.IsValidCell(gridX, gridY)) {
+        UI::SetDebugMessage("[WARNING] Cannot place player outside grid bounds.");
+        return false;
+    }
+
     if (IsCellOccupied(gridX, gridY, entities)) {
         UI::SetDebugMessage("[WARNING] Cell is already occupied. Cannot place player here.");
         return false;
     }
 
-    entities.push_back(std::make_unique<PlayerEntity>(grid, gridX, gridY));
+    entities.push_back(std::make_unique<PlayerEntity>(grid, currentAsset, gridX, gridY));
     UI::SetDebugMessage("[INFO] Player placed at (" + std::to_string(gridX) + ", " + std::to_string(gridY) + ")");
     return true;
 }
@@ -63,11 +72,18 @@ bool PlayerManager::RemovePlayer(Vector2 mouseScreen, Camera2D camera,
 
     for (auto it = entities.begin(); it != entities.end(); ++it) {
         if (auto player = dynamic_cast<PlayerEntity*>(it->get())) {
-            Rectangle playerBounds = player->GetBounds();
+            Rectangle playerBounds = player->GetDrawBounds();
 
             if (CheckCollisionPointRec(mouseWorld, playerBounds)) {
+                int removedX = player->GetGridX();
+                int removedY = player->GetGridY();
+
+                UI::ClearSelectedEntity();
                 entities.erase(it);
-                UI::SetDebugMessage("[INFO] Player removed");
+
+                UI::SetDebugMessage("[INFO] Player removed at (" +
+                    std::to_string(removedX) + ", " +
+                    std::to_string(removedY) + ")");
                 return true;
             }
         }

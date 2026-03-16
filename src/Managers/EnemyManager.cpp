@@ -37,18 +37,27 @@ bool EnemyManager::PlaceEnemy(Vector2 mouseScreen, Camera2D camera, std::vector<
         return false;
     }
 
+    if (!currentAsset) {
+        UI::SetDebugMessage("[WARNING] No asset selected for enemy placement.");
+        return false;
+    }
+
     Vector2 mouseWorld = GetScreenToWorld2D(mouseScreen, camera);
     int tileSize = grid.GetTileSize();
     int gridX = static_cast<int>(mouseWorld.x / tileSize);
     int gridY = static_cast<int>(mouseWorld.y / tileSize);
 
-    // Check if cell is occupied
+    if (!grid.IsValidCell(gridX, gridY)) {
+        UI::SetDebugMessage("[WARNING] Cannot place player outside grid bounds.");
+        return false;
+    }
+
     if (IsCellOccupied(gridX, gridY, entities)) {
         UI::SetDebugMessage("[WARNING] Cell is already occupied. Cannot place enemy here.");
         return false;
     }
 
-    entities.push_back(std::make_unique<EnemyEntity>(grid, gridX, gridY));
+    entities.push_back(std::make_unique<EnemyEntity>(grid, currentAsset, gridX, gridY));
     UI::SetDebugMessage("[INFO] Enemy placed at (" + std::to_string(gridX) + ", " + std::to_string(gridY) + ")");
     return true;
 }
@@ -59,11 +68,18 @@ bool EnemyManager::RemoveEnemy(Vector2 mouseScreen, Camera2D camera,
 
     for (auto it = entities.begin(); it != entities.end(); ++it) {
         if (auto enemy = dynamic_cast<EnemyEntity*>(it->get())) {
-            Rectangle enemyBounds = enemy->GetBounds();
+            Rectangle enemyBounds = enemy->GetDrawBounds();
 
             if (CheckCollisionPointRec(mouseWorld, enemyBounds)) {
+                int removedX = enemy->GetGridX();
+                int removedY = enemy->GetGridY();
+
+                UI::ClearSelectedEntity();
                 entities.erase(it);
-                UI::SetDebugMessage("[INFO] Enemy removed at (" + std::to_string(enemy->GetGridX()) + ", " + std::to_string(enemy->GetGridY()) + ")");
+
+                UI::SetDebugMessage("[INFO] Enemy removed at (" +
+                    std::to_string(removedX) + ", " +
+                    std::to_string(removedY) + ")");
                 return true;
             }
         }

@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -27,9 +28,10 @@ public:
 
     TileData GetTile(int x, int y, int layer = 0);
 
-    std::vector<TileData> *GetTilePtr(int x, int y);
+    std::map<int, TileData> *GetTilePtr(int x, int y);
     void SetTile(int x, int y, const TileData& tile, int layer = 0);
-    auto& GetAllTiles() const {return tiles;}
+    auto& GetAllTiles() {return tiles;}
+    const auto& GetAllTiles() const {return tiles;}
     std::vector<TileData> GetTilesAtPosition(int x, int y) const;
 
     void RemoveTile(int x, int y);
@@ -40,7 +42,7 @@ public:
     int GetLayerCount(int x, int y);
 
 private:
-    std::unordered_map<uint64_t, std::vector<TileData>> tiles;
+    std::unordered_map<uint64_t, std::map<int, TileData>> tiles;
 
     uint64_t PositionToID(const int x, const int y) const {
         return (static_cast<uint64_t>(x) << 32) | static_cast<uint64_t>(y);

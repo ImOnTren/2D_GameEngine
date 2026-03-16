@@ -4,6 +4,8 @@
 #include <unordered_map>
 #include <vector>
 #include <filesystem>
+#include <memory>
+#include "Animation/Animation.h"
 
 #include "raylib.h"
 
@@ -51,8 +53,19 @@ struct Asset {
     Rectangle SpriteSourceRect;
     std::vector<Rectangle> subSprites;
 
+    // Animation support
+    std::unique_ptr<AnimationSet> animationSet;
+    bool hasAnimations = false;
+    bool hasSelectedFrame = false;
+
     Asset(std::string id, std::string name, std::string category, std::string path, AssetType type)
-        : id(id), name(name), path(path), type(type), category(category), loaded(false){}
+        : id(id), name(name), path(path), type(type), category(category),
+          loaded(false), SpriteSize({0, 0}), SpriteSourceRect({0, 0, 0, 0}),
+          animationSet(nullptr) {}
+
+    bool HasAnimations() const {
+        return hasAnimations && animationSet != nullptr;
+    }
 };
 
 class AssetManager{
@@ -70,13 +83,23 @@ class AssetManager{
     Asset* GetAsset(const std::string& id);
     std::vector<Asset*> GetAssetByCategory(const std::string& category);
     std::vector<Asset*> GetAssetByType(const AssetType& type);
-    const std::vector<Asset*> GetAllAssets();
+    std::vector<Asset*> GetAllAssets() const;
     const std::vector<std::string> GetCategories();
     int GetAssetCount();
 
     Rectangle GetSpecificSprite(const Asset* asset, const int& index);
 
     void ProcessTileset(Asset* asset, int tileHeight, int tileWidth);
+
+    void LoadAssetWithFrame(const std::string& id,
+                           const std::string& name,
+                           const std::string& category,
+                           const std::string& path,
+                           int frameWidth,
+                           int frameHeight,
+                           int selectedFrameX,  // Column index
+                           int selectedFrameY,  // Row index
+                           AssetType type);
 
     private:
     std::unordered_map<std::string, std::unique_ptr<Asset>> assets;

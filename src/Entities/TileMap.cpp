@@ -25,14 +25,9 @@ bool TileMap::HasTile(int x, int y, int layer){
 
 void TileMap::SetTile(const int x, const int y, const TileData& tile, const int layer){
     uint64_t id = PositionToID(x, y);
-    auto& tileLayers = tiles[id];
-    // Ensure the vector is large enough
-    if (tileLayers.size() <= static_cast<size_t>(layer)) {
-        tileLayers.resize(layer + 1);
-    }
     TileData tileWithCorrectLayer = tile;
     tileWithCorrectLayer.layer = layer;
-    tileLayers[layer] = tileWithCorrectLayer;
+    tiles[id][layer] = tileWithCorrectLayer;
 }
 
 TileData TileMap::GetTile(int x, int y, int layer){
@@ -49,16 +44,18 @@ TileData TileMap::GetTile(int x, int y, int layer){
 
 std::vector<TileData> TileMap::GetTilesAtPosition(int x, int y) const {
     uint64_t id = PositionToID(x, y);
-    std::vector<TileData> empty;
+    std::vector<TileData> result;
     auto it = tiles.find(id);
     if (it != tiles.end()) {
-        return it->second;
+        for (auto const& [layerIndex, tile] : it->second) {
+            result.push_back(tile);
+        }
     }
-    return empty;
+    return result;
 }
 
 
-std::vector<TileData> *TileMap::GetTilePtr(int x, int y) {
+std::map<int, TileData> *TileMap::GetTilePtr(int x, int y) {
     auto it = tiles.find(PositionToID(x, y));
     if (it != tiles.end()) {
         return &it->second;
@@ -67,14 +64,12 @@ std::vector<TileData> *TileMap::GetTilePtr(int x, int y) {
 }
 
 void TileMap::RemoveTileFromLayer(int x, int y, int layer) {
-    std::vector<TileData> tileVec = GetTilesAtPosition(x, y);
-    if (layer >= 0 && layer < static_cast<int>(tileVec.size())) {
-        tileVec.erase(tileVec.begin() + layer);
-        if (tileVec.empty()) {
-            RemoveTile(x, y);
-        } else {
-            uint64_t id = PositionToID(x, y);
-            tiles[id] = tileVec;
+    uint64_t id = PositionToID(x, y);
+    auto it = tiles.find(id);
+    if (it != tiles.end()) {
+        it->second.erase(layer); // Remove only the specific layer
+        if (it->second.empty()) {
+            tiles.erase(it); // Remove the coordinate entirely if no layers left
         }
     }
 }

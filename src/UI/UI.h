@@ -8,8 +8,12 @@
 #include "raylib.h"
 #include "imgui.h"
 #include "rlImGui.h"
-#include "Managers/AssetManager.h"
+#include "AssetManagement/AssetManager.h"
 
+class Entity;
+class StaticEntity;
+class PlayerEntity;
+class EnemyEntity;
 class Engine;
 class Grid;
 
@@ -36,6 +40,11 @@ public:
         DebugMessages.clear();
     }
 
+    static void ClearSelectedEntity();
+
+    static float controlPanelWidthRatio;
+    static float assetConsoleHeightRatio;
+
 private:
     static void RenderModeControls(Engine& engine);
     static void RenderCameraResolutionControls(Engine& engine);
@@ -46,9 +55,10 @@ private:
     static void RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetManager);
     static void RenderTilesetPreview(const Asset* asset);
     static void RenderTileSelectionWindow(Engine& engine, Asset* tileset);
-    static void RenderTilesetGrid(Asset* tileset);
+    static void RenderTilesetGrid(Engine& engine, Asset* tileset);
     static void RenderTileSceneContext(Engine& engine, const Grid& grid);
     static void RenderLayerVisibilityControls(Engine& engine);
+    [[nodiscard]] static bool IsMouseOverUI();
     static std::vector<std::string> DebugMessages;
 
     static std::string selectedCategory;
@@ -58,6 +68,7 @@ private:
     static int thumbnailSize;
     static bool showTilesetPreview;
     static char searchBuffer[256];
+    static Entity* selectedSceneEntity;
 
     static bool showTileSelectionWindow;
     static Asset* selectedTileset;
@@ -66,5 +77,10 @@ private:
     static int tilesetTileWidth;
     static int tilesetTileHeight;
     static bool tileMapModified;
+    static bool bulkEditActive;
+    static int bulkEditStartX;
+    static int bulkEditStartY;
+    static int bulkEditEndX;
+    static int bulkEditEndY;
 
 };

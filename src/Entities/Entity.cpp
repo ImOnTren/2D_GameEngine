@@ -1,7 +1,16 @@
 #include "Entity.h"
 
 Entity::Entity(const Vector2 pos, const Vector2 size, const int layer)
-    : position(pos), velocity({0,0}), size(size), rotation(0), active(true), layer(layer),  collisionEnabled(true), collisionMask(0xFFFFFFFF) {
+    : position(pos),
+      velocity({0,0}),
+      size(size),
+      rotation(0),
+      active(true),
+      layer(layer),
+      collisionEnabled(true),
+      collisionMask(0xFFFFFFFF),
+      collisionOffset({0.0f, 0.0f}),
+      collisionSize(size) {
 }
 
 void Entity::Update(const float deltaTime) {
@@ -10,16 +19,12 @@ void Entity::Update(const float deltaTime) {
 }
 
 void Entity::Draw() {
-    DrawRectangleV(position, size, RED); // Placeholder
+    DrawRectangleV(position, size, RED);
 }
 
 void Entity::OnCollision(Entity* other) {
-    // Base entities might just stop; derived can override
     velocity = {0, 0};
 }
-
-// =======================================
-// Getters and Setters
 
 Vector2 Entity::GetPosition() const {
     return position;
@@ -54,10 +59,7 @@ void Entity::SetActive(bool state) {
 }
 
 bool Entity::IsCollisionEnabled() const {
-    if (collisionEnabled) {
-        return true;
-    }
-    return false;
+    return collisionEnabled;
 }
 
 void Entity::SetCollisionEnabled(bool enabled) {
@@ -72,8 +74,15 @@ void Entity::SetCollisionMask(const unsigned int& mask) {
     collisionMask = mask;
 }
 
-// =======================================
-
 Rectangle Entity::GetBounds() const {
+    return {
+        position.x + collisionOffset.x,
+        position.y + collisionOffset.y,
+        collisionSize.x,
+        collisionSize.y
+    };
+}
+
+Rectangle Entity::GetDrawBounds() const {
     return { position.x, position.y, size.x, size.y };
 }

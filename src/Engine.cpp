@@ -12,14 +12,20 @@ Engine::Engine() : playerManager(grid), enemyManager(grid) {
     layerVisibility.resize(MAX_LAYERS, true);
     HandleSceneCreation();
     UpdatePlayerCamera();
+    lastPlacedTileX = -999;
+    lastPlacedTileY = -999;
+    isPlacingTiles = false;
 }
 
 Engine::~Engine(){
     assetManager.UnloadAllAssets();
+    if (testAnimationSet.textureLoaded) {
+        UnloadTexture(testAnimationSet.texture);
+    }
 }
 
 void Engine::Init() {
-    InitWindow(800, 400, "Game Engine - Edit Mode");
+    InitWindow(800, 400, "Game Engine");
     SetWindowState(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MAXIMIZED);
     SetTargetFPS(144);
     rlImGuiSetup(true);
@@ -28,19 +34,37 @@ void Engine::Init() {
                                        availableResolutions[selectedResolutionIndex].height);
 
     LoadAssets();
+
+    AssetPersistence::LoadAssetDefinitions(assetManager, "assets.json");
 }
 
 void Engine::LoadAssets()
 {
-    assetManager.LoadAsset("player_hugo", "Hugo_sprite", "Player", "../src/player/hugo.png");
     assetManager.LoadAsset("grass_tileset", "Grass_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Tileset Grass Spring.png", 16, 16);
     assetManager.LoadAsset("winter_tileset", "Winter_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Tileset Grass Winter.png", 16, 16);
     assetManager.LoadAsset("water_tileset", "Water_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
     assetManager.LoadAsset("caves_tileset", "Caves_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Caves.png", 16, 16);
-    assetManager.LoadAsset("broken_house1", "Broken_House_1_texture", "Static Texture", "../src/assets/Exterior/Houses/4.png");
-    assetManager.LoadAsset("broken_house2", "Broken_House_2_texture", "Static Texture", "../src/assets/Exterior/Houses/3.png");
-    assetManager.LoadAsset("broken_house3", "Broken_House_3_texture", "Static Texture", "../src/assets/Exterior/Houses/2.png");
-    assetManager.LoadAsset("broken_house4", "Broken_House_4_texture", "Static Texture", "../src/assets/Exterior/Houses/1.png");
+    assetManager.LoadAsset("tilled_soil_tileset", "Tilled_soil_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Tilled Soil and wet soil.png", 16, 16);
+    assetManager.LoadAsset("all_props_tileset", "all_props_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/ALL props seasons.png", 16, 16);
+    assetManager.LoadAsset("water_ground_tileset", "water_ground_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
+    assetManager.LoadAsset("ground_road_tileset", "road_tileset", "Tileset", "../src/assets/Exterior/Road.png", 16, 16);
+    assetManager.LoadAsset("fence_wood_tileset", "Fence_wood_tileset", "Tileset", "../src/assets/Exterior/Fence and Bridge/Fence Wood.png", 16, 16);
+    assetManager.LoadAsset("fence_stone_tileset", "Fence_stone_tileset", "Tileset", "../src/assets/Exterior/Fence and Bridge/Fence Stone.png", 16, 16);
+    assetManager.LoadAsset("water_ground_tileset", "water_ground_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
+    assetManager.LoadAsset("broken_house8", "Broken_House_8_texture", "Static Texture", "../src/assets/Exterior/Houses/8.png");
+    assetManager.LoadAsset("broken_house_resized8", "Broken_House_8_resized_texture", "Static Texture", "../src/assets/Exterior/Houses/8 - resized.png");
+    assetManager.LoadAsset("broken_house7", "Broken_House_7_texture", "Static Texture", "../src/assets/Exterior/Houses/7.png");
+    assetManager.LoadAsset("broken_house6", "Broken_House_6_texture", "Static Texture", "../src/assets/Exterior/Houses/6.png");
+    assetManager.LoadAsset("broken_house5", "Broken_House_5_texture", "Static Texture", "../src/assets/Exterior/Houses/5.png");
+    assetManager.LoadAsset("broken_house4", "Broken_House_4_texture", "Static Texture", "../src/assets/Exterior/Houses/4.png");
+    assetManager.LoadAsset("broken_house3", "Broken_House_3_texture", "Static Texture", "../src/assets/Exterior/Houses/3.png");
+    assetManager.LoadAsset("broken_house2", "Broken_House_2_texture", "Static Texture", "../src/assets/Exterior/Houses/2.png");
+    assetManager.LoadAsset("broken_house1", "Broken_House_1_texture", "Static Texture", "../src/assets/Exterior/Houses/1.png");
+    assetManager.LoadAsset("water_house", "water_house_texture", "Static Texture", "../src/assets/Exterior/Houses/NPCS Houses/1.png");
+    assetManager.LoadAsset("outside_table", "outside_table_texture", "Static Texture", "../src/assets/Exterior/Table.png");
+    assetManager.LoadAsset("ice_cream_car", "ice_cream_car_texture", "Static Texture", "../src/assets/Exterior/ice cream car.png");
+    assetManager.LoadAsset("birch_tree", "birch_tree_texture", "Static Texture", "../src/assets/Farm/Tree/Common/No Shadow/Birch Tree single.png");
+    assetManager.LoadAsset("mahogany_tree", "mahogany_tree_texture", "Static Texture", "../src/assets/Farm/Tree/Common/No Shadow/Mahogany Tree single.png");
 }
 
 
@@ -74,6 +98,9 @@ void Engine::HandleEditModeInput() {
         case ToolState::PLACING_ASSET:
             UpdateAssetPlacementPreview();
             HandleAssetPlacement();
+            break;
+        case ToolState::REMOVING_ASSET:
+            HandleAssetRemoval();
             break;
         case ToolState::NONE:
             if (!IsMouseOverUI()) {
@@ -186,7 +213,10 @@ void Engine::HandleEnemyRemoval() {
 //============================================
 void Engine::HandleTilePlacement()
 {
-    if (IsMouseOverUI()) return;
+    if (IsMouseOverUI()) {
+        isPlacingTiles = false;
+        return;
+    }
 
     Vector2 mouseScreen = GetMousePosition();
     Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
@@ -199,20 +229,49 @@ void Engine::HandleTilePlacement()
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
-        TileData tile;
-        tile.tileID = tileToolState.tileset->id;
-        tile.tileIndex = tileToolState.selectedTileIndex;
-        tile.layer = tileToolState.activeLayer;
+        isPlacingTiles = true;
+        lastPlacedTileX = -999;  // Invalid position to force first placement
+        lastPlacedTileY = -999;
+    }
 
-        tileMap.SetTile(gridX, gridY, tile, tileToolState.activeLayer);
+    // Continue placing tiles while mouse button is held down
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && isPlacingTiles)
+    {
+        if (!grid.IsValidCell(gridX, gridY)) {
+            UI::SetDebugMessage("[WARNING] Cannot place tile outside grid bounds.");
+            return;
+        }
+        // Only place if we're on a different tile than last time
+        if (gridX != lastPlacedTileX || gridY != lastPlacedTileY)
+        {
+            TileData tile;
+            tile.tileID = tileToolState.tileset->id;
+            tile.tileIndex = tileToolState.selectedTileIndex;
+            tile.layer = tileToolState.activeLayer;
 
-        UI::SetDebugMessage("[INFO] Tile placed at (" + std::to_string(gridX) + ", " + std::to_string(gridY) + ")");
+            tileMap.SetTile(gridX, gridY, tile, tileToolState.activeLayer);
+
+            // Update last placed position
+            lastPlacedTileX = gridX;
+            lastPlacedTileY = gridY;
+
+            UI::SetDebugMessage("[INFO] Tile placed at (" + std::to_string(gridX) + ", " + std::to_string(gridY) + ")");
+        }
+    }
+
+    // Stop placing when mouse button is released
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    {
+        isPlacingTiles = false;
     }
 }
 
 void Engine::HandleTileRemoval()
 {
-    if (IsMouseOverUI()) return;
+    if (IsMouseOverUI()) {
+        isPlacingTiles = false;
+        return;
+    }
 
     Vector2 mouseScreen = GetMousePosition();
     Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
@@ -220,20 +279,42 @@ void Engine::HandleTileRemoval()
     TileMap& tileMap = scene->GetTileMap();
 
     int tileSize = grid.GetTileSize();
-    int GridX = static_cast<int>(worldPos.x) / tileSize;
-    int GridY = static_cast<int>(worldPos.y) / tileSize;
+    int gridX = static_cast<int>(worldPos.x) / tileSize;
+    int gridY = static_cast<int>(worldPos.y) / tileSize;
 
+    // Start removing tiles on mouse button press
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
-        if (tileMap.HasTile(GridX, GridY))
-        {
-            tileMap.RemoveTileFromLayer(GridX, GridY, tileToolState.activeLayer);
-            UI::SetDebugMessage("[INFO] Tile removed at (" + std::to_string(GridX) + ", " + std::to_string(GridY) + ")");
+        isPlacingTiles = true;
+        lastPlacedTileX = -999;
+        lastPlacedTileY = -999;
+    }
+
+    // Continue removing tiles while mouse button is held down
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && isPlacingTiles)
+    {
+        if (!grid.IsValidCell(gridX, gridY)) {
+            UI::SetDebugMessage("[WARNING] Cannot remove tile outside grid bounds.");
+            return;
         }
-        else
+        // Only remove if we're on a different tile than last time
+        if (gridX != lastPlacedTileX || gridY != lastPlacedTileY)
         {
-            UI::SetDebugMessage("[INFO] No tile to remove at (" + std::to_string(GridX) + ", " + std::to_string(GridY) + ")");
+            if (tileMap.HasTile(gridX, gridY))
+            {
+                tileMap.RemoveTileFromLayer(gridX, gridY, tileToolState.activeLayer);
+                UI::SetDebugMessage("[INFO] Tile removed at (" + std::to_string(gridX) + ", " + std::to_string(gridY) + ")");
+            }
+
+            lastPlacedTileX = gridX;
+            lastPlacedTileY = gridY;
         }
+    }
+
+    // Stop removing when mouse button is released
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    {
+        isPlacingTiles = false;
     }
 }
 
@@ -318,6 +399,10 @@ void Engine::DrawHoveredTileLayerInfo() {
     const int tileSize = grid.GetTileSize();
     const int gridX = static_cast<int>(worldPos.x) / tileSize;
     const int gridY = static_cast<int>(worldPos.y) / tileSize;
+
+    if (!grid.IsValidCell(gridX, gridY)) {
+        return;
+    }
 
     Scene* scene = GetCurrentScene();
     if (!scene) return;
@@ -408,6 +493,100 @@ void Engine::CycleLayerDown() {
     }
 }
 
+bool Engine::CanRemoveSpecificLayer(int layerIndex) const {
+    // Can't remove if we only have 1 layer
+    if (tileToolState.totalLayers <= 1) {
+        return false;
+    }
+
+    // Can't remove invalid layer index
+    if (layerIndex < 0 || layerIndex >= tileToolState.totalLayers) {
+        return false;
+    }
+
+    Scene* scene = const_cast<Engine*>(this)->GetCurrentScene();
+    if (!scene) return false;
+
+    // Check if the specified layer has any tiles
+    TileMap& tileMap = scene->GetTileMap();
+    const auto& allTiles = tileMap.GetAllTiles();
+
+    for (const auto& [key, tileVec] : allTiles) {
+        for (const auto& tile : tileVec) {
+            if (tile.second.layer == layerIndex) {
+                return false;  // Layer has tiles, can't remove
+            }
+        }
+    }
+
+    // Check if the specified layer has any entities
+    auto& entities = scene->GetEditModeEntities();
+    for (const auto& entity : entities) {
+        if (auto* staticEntity = dynamic_cast<StaticEntity*>(entity.get())) {
+            if (staticEntity->GetLayer() == layerIndex) {
+                return false;  // Layer has entities, can't remove
+            }
+        }
+    }
+
+    return true;
+}
+
+void Engine::RemoveSpecificLayer(int layerIndex) {
+    if (!CanRemoveSpecificLayer(layerIndex)) {
+        UI::SetDebugMessage("[WARNING] Cannot remove layer " + std::to_string(layerIndex) +
+                           ". Ensure layer is empty and there's more than 1 layer.");
+        return;
+    }
+
+    Scene* scene = GetCurrentScene();
+    if (!scene) return;
+
+    // Shift all layers above this one down by 1
+    TileMap& tileMap = scene->GetTileMap();
+    auto& allTiles = tileMap.GetAllTiles();
+
+    // Update tile layers
+    for (auto& [key, tileVec] : allTiles) {
+        for (auto& tile : tileVec) {
+            if (tile.second.layer > layerIndex) {
+                tile.second.layer--;  // Shift down
+            }
+        }
+    }
+
+    // Update entity layers
+    auto& entities = scene->GetEditModeEntities();
+    for (auto& entity : entities) {
+        if (auto* staticEntity = dynamic_cast<StaticEntity*>(entity.get())) {
+            int entityLayer = staticEntity->GetLayer();
+            if (entityLayer > layerIndex) {
+                staticEntity->SetLayer(entityLayer - 1);  // Shift down
+            }
+        }
+    }
+
+    // Remove the layer from visibility tracking
+    if (layerIndex < static_cast<int>(layerVisibility.size())) {
+        layerVisibility.erase(layerVisibility.begin() + layerIndex);
+    }
+
+    // Decrease total layer count
+    tileToolState.totalLayers--;
+
+    // Adjust active layer if needed
+    if (tileToolState.activeLayer == layerIndex) {
+        // If we deleted the active layer, move to the one below (or 0)
+        tileToolState.activeLayer = std::max(0, layerIndex - 1);
+    } else if (tileToolState.activeLayer > layerIndex) {
+        // If active layer is above deleted layer, shift it down
+        tileToolState.activeLayer--;
+    }
+
+    UI::SetDebugMessage("[LAYERS] Removed layer " + std::to_string(layerIndex) +
+                       ". Total layers: " + std::to_string(tileToolState.totalLayers));
+}
+
 bool Engine::IsLayerVisible(const int layer) const {
     if (layer >= 0 && layer < MAX_LAYERS) {
         return layerVisibility[layer];
@@ -475,7 +654,7 @@ bool Engine::CanRemoveLayer() const {
     int lastLayer = tileToolState.totalLayers - 1;
     for (const auto& [key, tileVec] : allTiles) {
         for (const auto& tile : tileVec) {
-            if (tile.layer == lastLayer) {
+            if (tile.second.layer == lastLayer) {
                 return false;
             }
         }
@@ -527,6 +706,11 @@ void Engine::HandleAssetPlacement(){
         const int gridCellX = static_cast<int>(worldPos.x) / tileSize;
         const int gridCellY = static_cast<int>(worldPos.y) / tileSize;
 
+        if (!grid.IsValidCell(gridCellX, gridCellY)) {
+            UI::SetDebugMessage("[WARNING] Cannot place asset outside grid bounds.");
+            return;
+        }
+
         scene->GetEditModeEntities().emplace_back(
             std::make_unique<StaticEntity>(grid, assetToolState.asset, gridCellX, gridCellY, tileToolState.activeLayer)
         );
@@ -535,6 +719,39 @@ void Engine::HandleAssetPlacement(){
                             std::to_string(static_cast<int>(worldPos.y) / grid.GetTileSize()) + ")");
     }
 }
+
+void Engine::HandleAssetRemoval() {
+    if (IsMouseOverUI()) return;
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Scene* scene = GetCurrentScene();
+        if (!scene) return;
+
+        Vector2 mouseScreen = GetMousePosition();
+        Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
+
+        auto& entities = scene->GetEditModeEntities();
+
+        // Iterate through entities to find static entities under the mouse
+        for (auto it = entities.begin(); it != entities.end(); ++it) {
+            if (auto* staticEntity = dynamic_cast<StaticEntity*>(it->get())) {
+                Rectangle entityBounds = staticEntity->GetBounds();
+
+                if (CheckCollisionPointRec(worldPos, entityBounds)) {
+                    UI::SetDebugMessage("[INFO] Removed asset '" +
+                                      (staticEntity->GetAsset() ? staticEntity->GetAsset()->name : "Unknown") +
+                                      "' at (" + std::to_string(staticEntity->GetGridX()) + ", " +
+                                      std::to_string(staticEntity->GetGridY()) + ")");
+                    entities.erase(it);
+                    return;  // Remove only one asset per click
+                }
+            }
+        }
+
+        UI::SetDebugMessage("[INFO] No asset found at cursor position");
+    }
+}
+
 
 void Engine::UpdateAssetPlacementPreview() {
     if (currentTool == ToolState::PLACING_ASSET && assetToolState.asset && !IsMouseOverUI()) {
@@ -546,6 +763,11 @@ void Engine::UpdateAssetPlacementPreview() {
         // Calculate the grid cell position
         const int gridX = static_cast<int>(worldPos.x) / tileSize;
         const int gridY = static_cast<int>(worldPos.y) / tileSize;
+
+        if (!grid.IsValidCell(gridX, gridY)) {
+            UI::SetDebugMessage("[WARNING] Cannot place asset outside grid bounds.");
+            return;
+        }
 
         // Convert back to pixel position for preview
         assetToolState.previewPosition = {
@@ -562,13 +784,33 @@ void Engine::UpdateAssetPlacementPreview() {
 
 void Engine::DrawAssetPlacementPreview() const {
     if (assetToolState.showPreview && assetToolState.asset) {
-        const Rectangle sourceRect = {0, 0, static_cast<float>(assetToolState.asset->texture.width), static_cast<float>(assetToolState.asset->texture.height)};
+        Rectangle sourceRect;
+        float width, height;
+
+        // Check if this asset has a selected frame
+        if (assetToolState.asset->SpriteSourceRect.width > 0 &&
+            assetToolState.asset->SpriteSourceRect.height > 0) {
+            // Use the selected frame
+            sourceRect = assetToolState.asset->SpriteSourceRect;
+            width = assetToolState.asset->SpriteSourceRect.width;
+            height = assetToolState.asset->SpriteSourceRect.height;
+            } else {
+                // Use full texture
+                sourceRect = {0, 0,
+                             static_cast<float>(assetToolState.asset->texture.width),
+                             static_cast<float>(assetToolState.asset->texture.height)};
+                width = static_cast<float>(assetToolState.asset->texture.width);
+                height = static_cast<float>(assetToolState.asset->texture.height);
+            }
+
         const float previewX = assetToolState.previewPosition.x +
-                        (static_cast<float>(grid.GetTileSize() - assetToolState.asset->texture.width)) / 2.0f;
+                        (static_cast<float>(grid.GetTileSize()) - width) / 2.0f;
         const float previewY = assetToolState.previewPosition.y +
-                        (static_cast<float>(grid.GetTileSize() - assetToolState.asset->texture.height)) / 2.0f;
-        const Rectangle destRect = {previewX, previewY, static_cast<float>(assetToolState.asset->texture.width), static_cast<float>(assetToolState.asset->texture.height)};
-        DrawTexturePro(assetToolState.asset->texture, sourceRect, destRect, {0, 0}, 0.0f, Fade(WHITE, assetToolState.previewAlpha));
+                        (static_cast<float>(grid.GetTileSize()) - height) / 2.0f;
+        const Rectangle destRect = {previewX, previewY, width, height};
+
+        DrawTexturePro(assetToolState.asset->texture, sourceRect, destRect, {0, 0}, 0.0f,
+                      Fade(WHITE, assetToolState.previewAlpha));
         DrawRectangleLinesEx(destRect, 2.0f, YELLOW);
     }
 }
@@ -661,19 +903,25 @@ void Engine::HandleSceneSwitchInPlayMode() {
         return;
     }
 
-    TileData tile = playModeTileMap->GetTile(playerGridX, playerGridY);
-    if (!tile.isSceneSwitcher) {
-        return;
-    }
-    if (tile.triggerKey == 0) {
-        return;
-    }
-    if (IsKeyPressed(tile.triggerKey)) {
-        if (tile.targetSceneID.empty()) {
-            UI::SetDebugMessage("[ERROR] Tile at (" + std::to_string(playerGridX) + ", " + std::to_string(playerGridY) + ") has no target scene ID set");
+    std::vector<TileData> tilesAtPos = playModeTileMap->GetTilesAtPosition(playerGridX, playerGridY);
+    for (const auto& tile : tilesAtPos) {
+        if (tile.tileID.empty()) {
+            continue;
+        }
+        if (!tile.isSceneSwitcher) {
+            continue;
+        }
+        if (tile.triggerKey == 0) {
+            continue;
+        }
+        if (IsKeyPressed(tile.triggerKey)) {
+            if (tile.targetSceneID.empty()) {
+                UI::SetDebugMessage("[ERROR] Tile at (" + std::to_string(playerGridX) + ", " + std::to_string(playerGridY) + ") has no target scene ID set");
+                return;
+            }
+            ChangeScene(tile.targetSceneID, playerGridX, playerGridY);
             return;
         }
-        ChangeScene(tile.targetSceneID, playerGridX, playerGridY);
     }
 }
 
@@ -782,15 +1030,18 @@ void Engine::ResolveCollisionInPlayMode() {
     if (!playModeTileMap) {
         return;
     }
+
     Scene* scene = GetCurrentScene();
     if (!scene) {
         return;
     }
+
     auto& playModeSnapshots = scene->GetPlayModeSnapshots();
     PlayerEntity* player = playerManager.FindPlayerEntity(playModeSnapshots);
     if (!player) {
         return;
     }
+
     if (!player->IsCollisionEnabled()) {
         return;
     }
@@ -801,79 +1052,159 @@ void Engine::ResolveCollisionInPlayMode() {
     float dx = currentPlayerPos.x - previousPlayerPos.x;
     float dy = currentPlayerPos.y - previousPlayerPos.y;
 
-    if (dx == 0.0f && dy == 0.0f) {
-        return;
-    }
-
     Rectangle playerBounds = player->GetBounds();
     float width = playerBounds.width;
     float height = playerBounds.height;
+    Vector2 playerHitboxOffset = player->GetCollisionOffset();
 
     int tileSize = grid.GetTileSize();
 
-    auto collidesAt = [&](float x, float y) -> bool {
-        Rectangle r{x, y, width, height};
+    auto collidesAt = [&](float x, float y, const Entity* ignoreEntity = nullptr) -> bool {
+        Rectangle r{
+            x + playerHitboxOffset.x,
+            y + playerHitboxOffset.y,
+            width,
+            height
+        };
+
         int startX = static_cast<int>(r.x) / tileSize;
         int startY = static_cast<int>(r.y) / tileSize;
         int endX = static_cast<int>(r.x + r.width - 1) / tileSize;
         int endY = static_cast<int>(r.y + r.height - 1) / tileSize;
+
         for (int ty = startY; ty <= endY; ++ty) {
             for (int tx = startX; tx <= endX; ++tx) {
                 if (!playModeTileMap->HasTile(tx, ty)) {
                     continue;
                 }
-                TileData tile = playModeTileMap->GetTile(tx, ty);
-                if (!tile.isSolid) {
-                    continue;
-                }
-                Rectangle tileRect{
-                    static_cast<float>(tx * tileSize),
-                    static_cast<float>(ty * tileSize),
-                    static_cast<float>(tileSize),
-                    static_cast<float>(tileSize)
-                };
-                if (CheckCollisionRecs(r, tileRect)) {
-                    return true;
+
+                std::vector<TileData> tilesAtPos = playModeTileMap->GetTilesAtPosition(tx, ty);
+                for (const auto& tile : tilesAtPos) {
+                    if (!tile.isSolid) {
+                        continue;
+                    }
+
+                    Rectangle tileRect{
+                        static_cast<float>(tx * tileSize),
+                        static_cast<float>(ty * tileSize),
+                        static_cast<float>(tileSize),
+                        static_cast<float>(tileSize)
+                    };
+
+                    if (CheckCollisionRecs(r, tileRect)) {
+                        return true;
+                    }
                 }
             }
         }
+
         for (auto& entity : playModeSnapshots) {
             if (entity.get() == player) {
                 continue;
             }
+
+            if (entity.get() == ignoreEntity) {
+                continue;
+            }
+
             if (!entity->IsCollisionEnabled()) {
                 continue;
             }
+
             Rectangle entityBounds = entity->GetBounds();
             if (CheckCollisionRecs(r, entityBounds)) {
                 return true;
             }
         }
+
         return false;
     };
+
+    // -------------------------------------------------
+    // 1) DEPENETRATION / UNSTUCK PASS
+    // If the player is already overlapping enemies, push
+    // them out before the normal movement resolution.
+    // -------------------------------------------------
+    {
+        Rectangle currentBounds = player->GetBounds();
+        Vector2 correctedPos = player->GetPosition();
+
+        for (auto& entity : playModeSnapshots) {
+            if (entity.get() == player) {
+                continue;
+            }
+
+            if (!entity->IsCollisionEnabled()) {
+                continue;
+            }
+
+            Rectangle other = entity->GetBounds();
+
+            if (!CheckCollisionRecs(currentBounds, other)) {
+                continue;
+            }
+
+            float overlapLeft   = (currentBounds.x + currentBounds.width) - other.x;
+            float overlapRight  = (other.x + other.width) - currentBounds.x;
+            float overlapTop    = (currentBounds.y + currentBounds.height) - other.y;
+            float overlapBottom = (other.y + other.height) - currentBounds.y;
+
+            float pushX = (overlapLeft < overlapRight) ? -overlapLeft : overlapRight;
+            float pushY = (overlapTop < overlapBottom) ? -overlapTop : overlapBottom;
+
+            // Push along the axis of least penetration
+            if (fabsf(pushX) < fabsf(pushY)) {
+                float testX = correctedPos.x + pushX;
+                if (!collidesAt(testX, correctedPos.y, entity.get())) {
+                    correctedPos.x = testX;
+                }
+            } else {
+                float testY = correctedPos.y + pushY;
+                if (!collidesAt(correctedPos.x, testY, entity.get())) {
+                    correctedPos.y = testY;
+                }
+            }
+
+            player->SetWorldPositionAndUpdateGrid(correctedPos);
+            currentBounds = player->GetBounds();
+        }
+    }
+
+    // Re-read after possible depenetration
+    previousPlayerPos = player->GetPreviousPosition();
+    currentPlayerPos = player->GetPosition();
+
+    dx = currentPlayerPos.x - previousPlayerPos.x;
+    dy = currentPlayerPos.y - previousPlayerPos.y;
+
+    if (dx == 0.0f && dy == 0.0f) {
+        return;
+    }
 
     Vector2 resolvedPos = previousPlayerPos;
     bool xBlocked = false;
     bool yBlocked = false;
+
     if (dx != 0.0f) {
         float candX = previousPlayerPos.x + dx;
         if (!collidesAt(candX, previousPlayerPos.y)) {
             resolvedPos.x = candX;
-        }
-        else {
+        } else {
             xBlocked = true;
         }
     }
+
     if (dy != 0.0f) {
         float candY = previousPlayerPos.y + dy;
         if (!collidesAt(resolvedPos.x, candY)) {
             resolvedPos.y = candY;
-        }
-        else {
+        } else {
             yBlocked = true;
         }
     }
+
     player->SetWorldPositionAndUpdateGrid(resolvedPos);
+
     Vector2 playerVelocity = player->GetVelocity();
     playerVelocity.x = xBlocked ? 0.0f : playerVelocity.x;
     playerVelocity.y = yBlocked ? 0.0f : playerVelocity.y;
@@ -893,7 +1224,7 @@ void Engine::Run() {
 
         if (playModeWindowOpen && currentMode == Mode::PLAY) {
             PlayerEntity* playModePlayer = playerManager.FindPlayerEntity(playModeSnapshots);
-
+            float deltaTime = GetFrameTime();
             for (auto& entity : playModeSnapshots) {
                 if (auto player = dynamic_cast<PlayerEntity*>(entity.get())) {
                     player->Update(GetFrameTime());
@@ -901,10 +1232,25 @@ void Engine::Run() {
                 else if (auto enemy = dynamic_cast<EnemyEntity*>(entity.get())) {
                     enemy->Update(GetFrameTime(), playModePlayer);
                 }
+                else {
+                    entity->Update(deltaTime);
+                }
             }
             ResolveCollisionInPlayMode();
             UpdatePlayModeCamera();
             HandleSceneSwitchInPlayMode();
+        }
+
+        testAnimator.Update(GetFrameTime());
+
+        // Test directional animations with number keys
+        if (IsKeyPressed(KEY_S)) testAnimator.PlayDirectional("idle", AnimationDirection::DOWN);
+        if (IsKeyPressed(KEY_D)) testAnimator.PlayDirectional("idle", AnimationDirection::RIGHT);
+        if (IsKeyPressed(KEY_W)) testAnimator.PlayDirectional("idle", AnimationDirection::UP);
+        if (IsKeyPressed(KEY_A)) testAnimator.PlayDirectional("idle", AnimationDirection::LEFT);
+
+        if (IsKeyPressed(KEY_SEVEN)) {
+            animationEditor.SetOpen(!animationEditor.IsOpen());
         }
 
         BeginDrawing();
@@ -941,7 +1287,20 @@ void Engine::Run() {
                     entity->Draw();
                 }
             }
+
             DrawAssetPlacementPreview();
+
+            if (testAnimator.HasValidTexture()) {
+                Rectangle srcRect = testAnimator.GetCurrentFrameRect();
+                Rectangle destRect = {
+                    testAnimatorPosition.x,
+                    testAnimatorPosition.y,
+                    static_cast<float>(testAnimationSet.frameWidth),
+                    static_cast<float>(testAnimationSet.frameHeight)
+                };
+                DrawTexturePro(testAnimator.GetTexture(), srcRect, destRect, {0, 0}, 0.0f, WHITE);
+            }
+
             EndMode2D();
         }
 
@@ -975,6 +1334,10 @@ void Engine::Run() {
         UI::RenderAssetConsole(*this);
         UI::RenderPlayModeWindow(*this);
         UI::RenderNewSceneTab(*this);
+        if (animationEditor.IsOpen()) {
+            animationEditor.Render(*this);
+        }
+        assetImporter.Render(*this);
         rlImGuiEnd();
 
         EndDrawing();
@@ -982,6 +1345,7 @@ void Engine::Run() {
 }
 
 void Engine::Shutdown() const {
+    AssetPersistence::SaveAssetDefinitions(assetManager, "assets.json");
     if (playModeTexture.id != 0) {
         UnloadRenderTexture(playModeTexture);
     }

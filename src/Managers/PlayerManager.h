@@ -3,6 +3,7 @@
 #include <vector>
 #include "raylib.h"
 #include "../Entities/Entity.h"
+#include "AssetManagement/AssetManager.h"
 
 class Grid;
 class PlayerEntity;
@@ -18,6 +19,10 @@ public:
     bool PlacePlayer(Vector2 mouseScreen, Camera2D camera, std::vector<std::unique_ptr<Entity>>& entities);
     bool RemovePlayer(Vector2 mouseScreen, Camera2D camera, std::vector<std::unique_ptr<Entity>>& entities);
 
+    void SetPlacementAsset(Asset* asset) { currentAsset = asset; }
+    [[nodiscard]] Asset* GetPlacementAsset() const { return currentAsset; }
+
 private:
     Grid& grid;
+    Asset* currentAsset = nullptr;
 };

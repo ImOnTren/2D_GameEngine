@@ -1,63 +1,147 @@
 #include "PlayerEntity.h"
 
-PlayerEntity::PlayerEntity(Grid& g, int gridX, int gridY)
-    : Entity({0,0}, {16,16}), grid(g), cellX(gridX), cellY(gridY) {
-    PlaceOnGrid(gridX, gridY);
+PlayerEntity::PlayerEntity(Grid& grid, Asset* asset, const int gridX, const int gridY, const int layer)
+    : Entity({0,0}, {16,16}, layer),
+      grid(grid),
+      cellX(gridX),
+      cellY(gridY),
+      layer(layer),
+      asset(asset) {
 
-    collisionEnabled = true;
-    collisionMask = 0xFFFFFFFF; // Collide with all by default
+    float w = static_cast<float>(grid.GetTileSize());
+    float h = static_cast<float>(grid.GetTileSize());
 
-    textureLoaded = LoadPlayerTexture("../src/player/hugo.png");
+    if (asset && asset->loaded) {
+        if (asset->SpriteSourceRect.width > 0 && asset->SpriteSourceRect.height > 0) {
+            w = asset->SpriteSourceRect.width;
+            h = asset->SpriteSourceRect.height;
+        } else {
+            w = static_cast<float>(asset->texture.width);
+            h = static_cast<float>(asset->texture.height);
+        }
+    }
 
     previousPosition = position;
     previousGridX = cellX;
     previousGridY = cellY;
+
+    baseSize = { w, h };
+    size = baseSize;
+    scale = 1.0f;
+
+    PlaceOnGrid(gridX, gridY);
+    RecalculateCollisionBox();
 }
 
 PlayerEntity::PlayerEntity(const PlayerEntity& other)
-    : Entity(other), grid(other.grid), cellX(other.cellX), cellY(other.cellY),
-      textureLoaded(other.textureLoaded), speed(other.speed) {
-    // We don't copy the texture, we share it
-    if (textureLoaded) {
-        playerTexture = other.playerTexture; // This is a handle copy, not deep copy
-    }
-    collisionEnabled = true;
-    collisionMask = 0xFFFFFFFF; // Collide with all by default
-
-    previousPosition = other.previousPosition;
-    previousGridX = other.previousGridX;
-    previousGridY = other.previousGridY;
+    : Entity(other),
+      grid(other.grid),
+      cellX(other.cellX),
+      cellY(other.cellY),
+      layer(other.layer),
+      asset(other.asset),
+      speed(other.speed),
+      playerTexture(other.playerTexture),
+      textureLoaded(other.textureLoaded),
+      scale(other.scale),
+      baseSize(other.baseSize) {
 }
 
 PlayerEntity::~PlayerEntity() {
     if (textureLoaded) {
         UnloadTexture(playerTexture);
+        textureLoaded = false;
     }
+}
+
+void PlayerEntity::RecalculateCollisionBox() {
+    float hitboxWidth  = size.x * 0.45f;
+    float hitboxHeight = size.y * 0.75f;
+    float hitboxOffsetX = (size.x - hitboxWidth) * 0.5f;
+    float hitboxOffsetY = size.y - hitboxHeight - (4.0f * scale);
+
+    SetCollisionBox({ hitboxOffsetX, hitboxOffsetY }, { hitboxWidth, hitboxHeight });
+}
+
+void PlayerEntity::SetScale(float newScale) {
+    if (newScale < 0.25f) newScale = 0.25f;
+    if (newScale > 4.0f)  newScale = 4.0f;
+
+    scale = newScale;
+    size = { baseSize.x * scale, baseSize.y * scale };
+
+    PlaceOnGrid(cellX, cellY);
+    RecalculateCollisionBox();
 }
 
 // Snapshot implementation
 std::unique_ptr<Entity> PlayerEntity::CreateSnapshot() const {
     // Create a new player with the same properties
-    auto snapshot = std::make_unique<PlayerEntity>(grid, cellX, cellY);
-    snapshot->SetPosition(position);
-    snapshot->SetVelocity(velocity);
-    snapshot->SetSize(size);
-    snapshot->SetActive(active);
-    return snapshot;
+    return std::make_unique<PlayerEntity>(*this);
 }
 
 void PlayerEntity::RestoreFromSnapshot(const Entity* snapshot) {
-    const PlayerEntity* playerSnapshot = dynamic_cast<const PlayerEntity*>(snapshot);
-    if (playerSnapshot) {
-        // Copy the state
-        position = playerSnapshot->position;
-        velocity = playerSnapshot->velocity;
-        size = playerSnapshot->size;
-        rotation = playerSnapshot->rotation;
-        active = playerSnapshot->active;
+    Entity::RestoreFromSnapshot(snapshot);
+
+    if (const auto* playerSnapshot = dynamic_cast<const PlayerEntity*>(snapshot)) {
         cellX = playerSnapshot->cellX;
         cellY = playerSnapshot->cellY;
+        layer = playerSnapshot->layer;
+        asset = playerSnapshot->asset;
+        speed = playerSnapshot->speed;
+        scale = playerSnapshot->scale;
+        baseSize = playerSnapshot->baseSize;
     }
+}
+
+void PlayerEntity::Update(float deltaTime) {
+    previousPosition = position;
+    previousGridX = cellX;
+    previousGridY = cellY;
+
+    Vector2 move = {0, 0};
+
+    if (IsKeyDown(KEY_A)) move.x -= 1.0f;
+    if (IsKeyDown(KEY_D)) move.x += 1.0f;
+    if (IsKeyDown(KEY_W)) move.y -= 1.0f;
+    if (IsKeyDown(KEY_S)) move.y += 1.0f;
+
+    if (Vector2Length(move) > 0.0f) {
+        move = Vector2Normalize(move);
+        velocity = Vector2Scale(move, speed);
+    } else {
+        velocity = {0, 0};
+    }
+
+    Entity::Update(deltaTime);
+}
+
+void PlayerEntity::Draw() {
+    if (!active) return;
+
+    if (asset && asset->loaded) {
+        Rectangle sourceRect;
+        if (asset->SpriteSourceRect.width > 0 && asset->SpriteSourceRect.height > 0) {
+            sourceRect = asset->SpriteSourceRect;
+        } else {
+            sourceRect = {0, 0, (float)asset->texture.width, (float)asset->texture.height};
+        }
+
+        Rectangle destRect = {
+            position.x,
+            position.y,
+            size.x,
+            size.y
+        };
+
+        DrawTexturePro(asset->texture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);
+    } else {
+        DrawRectangleV(position, size, BLUE);
+    }
+#ifdef _DEBUG
+    Rectangle hitbox = GetBounds();
+    DrawRectangleLinesEx(hitbox, 1.0f, GREEN);
+#endif
 }
 
 void PlayerEntity::RestorePreviousTransform() {
@@ -73,80 +157,15 @@ void PlayerEntity::SetWorldPositionAndUpdateGrid(Vector2 worldPosition) {
     cellY = static_cast<int>(position.y / static_cast<float>(tileSize));
 }
 
-bool PlayerEntity::LoadPlayerTexture(const char* path) {
-    if (FileExists(path)) {
-        playerTexture = LoadTexture(path);
-
-        // Make the player sprite pixel-perfect TODO: Change this so AssetManager handles this part
-        SetTextureFilter(playerTexture, TEXTURE_FILTER_POINT);
-        SetTextureWrap(playerTexture, TEXTURE_WRAP_CLAMP);
-
-        return true;
-    }
-    TraceLog(LOG_WARNING, "Failed to load player texture: '%s'", path);
-    return false;
-}
-
-void PlayerEntity::Update(float deltaTime) {
-    previousPosition = position;
-    previousGridX = cellX;
-    previousGridY = cellY;
-
-    // Smooth movement using velocity
-    Vector2 input = {0, 0};
-
-    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) input.x += 1;
-    if (IsKeyDown(KEY_LEFT)  || IsKeyDown(KEY_A)) input.x -= 1;
-    if (IsKeyDown(KEY_DOWN)  || IsKeyDown(KEY_S)) input.y += 1;
-    if (IsKeyDown(KEY_UP)    || IsKeyDown(KEY_W)) input.y -= 1;
-
-    // Normalize diagonal movement
-    if (Vector2Length(input) > 0) {
-        input = Vector2Normalize(input);
-    }
-
-    // Apply velocity
-    velocity = Vector2Scale(input, speed);
-
-    // Call base Update to apply velocity to position
-    Entity::Update(deltaTime);
-
-    // Update grid coordinates based on new position
-    int tileSize = grid.GetTileSize();
-    cellX = static_cast<int>(position.x / tileSize);
-    cellY = static_cast<int>(position.y / tileSize);
-
-    if (position.x < 0) position.x = 0;
-    if (position.y < 0) position.y = 0;
-}
-
-void PlayerEntity::Draw() {
-    if (!active) return;
-
-    Vector2 drawPos = position;
-
-    // snap the player’s render position to whole pixels
-    drawPos.x = std::round(drawPos.x);
-    drawPos.y = std::round(drawPos.y);
-
-    if (textureLoaded) {
-        Rectangle dest = { drawPos.x, drawPos.y, size.x, size.y };
-        DrawTexturePro(playerTexture,
-                       { 0, 0, (float)playerTexture.width, (float)playerTexture.height },
-                       dest,
-                       { 0, 0 },
-                       0.0f,
-                       WHITE);
-    } else {
-        DrawRectangleRec({ drawPos.x, drawPos.y, size.x, size.y }, BLUE);
-    }
-}
-
 void PlayerEntity::PlaceOnGrid(int gridX, int gridY) {
     cellX = gridX;
     cellY = gridY;
-    int tileSize = grid.GetTileSize();
-    position = { static_cast<float>(cellX * tileSize), static_cast<float>(cellY * tileSize) };
-    size = { static_cast<float>(tileSize), static_cast<float>(tileSize) };
 
+    const int tileSize = grid.GetTileSize();
+    position.x = static_cast<float>(cellX * tileSize) + (static_cast<float>(tileSize) - size.x) / 2.0f;
+    position.y = static_cast<float>(cellY * tileSize) + (static_cast<float>(tileSize) - size.y) / 2.0f;
+}
+
+void PlayerEntity::OnCollision(Entity* other) {
+    velocity = {0, 0};
 }

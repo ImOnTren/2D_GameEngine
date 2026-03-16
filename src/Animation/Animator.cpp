@@ -1,0 +1,144 @@
+// Animator.cpp
+#include "Animator.h"
+
+void Animator::SetAnimationSet(AnimationSet* set) {
+    animationSet = set;
+    Stop();
+}
+
+void Animator::Play(const std::string& animationName, bool forceRestart) {
+    if (!animationSet) {
+        return;
+    }
+    
+    if (!forceRestart && currentAnimationName == animationName && playing) {
+        return;
+    }
+    
+    const Animation* anim = animationSet->GetAnimation(animationName);
+    if (!anim || anim->frames.empty()) {
+        return;
+    }
+    
+    currentAnimation = anim;
+    currentAnimationName = animationName;
+    currentDirection = anim->direction;
+    currentFrameIndex = 0;
+    elapsedTime = 0.0f;
+    playing = true;
+    finished = false;
+    flipHorizontal = false;  // Direct play doesn't flip
+}
+
+void Animator::PlayDirectional(const std::string& baseName, AnimationDirection direction, bool forceRestart) {
+    if (!animationSet) {
+        return;
+    }
+    
+    // Determine if we need to flip
+    bool needsFlip = (direction == AnimationDirection::LEFT);
+    AnimationDirection actualDirection = needsFlip ? AnimationDirection::RIGHT : direction;
+    
+    // Build the animation name
+    std::string animName = BuildAnimationName(baseName, actualDirection);
+    
+    // Check if already playing this animation with same flip state
+    if (!forceRestart && currentAnimationName == animName && 
+        flipHorizontal == needsFlip && playing) {
+        return;
+    }
+    
+    const Animation* anim = animationSet->GetAnimation(animName);
+    if (!anim || anim->frames.empty()) {
+        return;
+    }
+    
+    currentAnimation = anim;
+    currentAnimationName = animName;
+    currentDirection = direction;  // Store the requested direction, not the actual
+    currentFrameIndex = 0;
+    elapsedTime = 0.0f;
+    playing = true;
+    finished = false;
+    flipHorizontal = needsFlip;
+}
+
+std::string Animator::BuildAnimationName(const std::string& baseName, AnimationDirection direction) const {
+    switch (direction) {
+        case AnimationDirection::DOWN:  return baseName + "_down";
+        case AnimationDirection::UP:    return baseName + "_up";
+        case AnimationDirection::RIGHT: return baseName + "_right";
+        case AnimationDirection::LEFT:  return baseName + "_right";  // Use right for left (will flip)
+        case AnimationDirection::NONE:  return baseName;
+    }
+    return baseName;
+}
+
+void Animator::Stop() {
+    playing = false;
+    finished = false;
+    currentFrameIndex = 0;
+    elapsedTime = 0.0f;
+    currentAnimation = nullptr;
+    currentAnimationName.clear();
+    currentDirection = AnimationDirection::NONE;
+    flipHorizontal = false;
+}
+
+void Animator::Update(float deltaTime) {
+    if (!playing || !currentAnimation || currentAnimation->frames.empty()) {
+        return;
+    }
+    
+    elapsedTime += deltaTime * playbackSpeed;
+    
+    const AnimationFrame& currentFrame = currentAnimation->frames[currentFrameIndex];
+    
+    while (elapsedTime >= currentFrame.duration) {
+        elapsedTime -= currentFrame.duration;
+        currentFrameIndex++;
+        
+        if (currentFrameIndex >= static_cast<int>(currentAnimation->frames.size())) {
+            if (currentAnimation->loop) {
+                currentFrameIndex = 0;
+            } else {
+                currentFrameIndex = static_cast<int>(currentAnimation->frames.size()) - 1;
+                playing = false;
+                finished = true;
+                return;
+            }
+        }
+    }
+}
+
+Rectangle Animator::GetCurrentFrameRect() const {
+    if (!currentAnimation || currentAnimation->frames.empty()) {
+        return {0, 0, 0, 0};
+    }
+    
+    int frameIdx = currentFrameIndex;
+    if (frameIdx < 0) frameIdx = 0;
+    if (frameIdx >= static_cast<int>(currentAnimation->frames.size())) {
+        frameIdx = static_cast<int>(currentAnimation->frames.size()) - 1;
+    }
+    
+    Rectangle rect = currentAnimation->frames[frameIdx].sourceRect;
+    
+    // If flipped, make width negative (raylib will flip the texture)
+    if (flipHorizontal) {
+        rect.width = -rect.width;
+    }
+    
+    return rect;
+}
+
+Texture2D Animator::GetTexture() const {
+    if (animationSet && animationSet->textureLoaded) {
+        return animationSet->texture;
+    }
+    return Texture2D{0};
+}
+
+bool Animator::HasValidTexture() const {
+    return animationSet && animationSet->textureLoaded && animationSet->texture.id != 0;
+}

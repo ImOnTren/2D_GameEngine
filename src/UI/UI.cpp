@@ -1,6 +1,8 @@
 #include "UI.h"
 #include <algorithm>
 #include "Engine.h"
+#include "../Managers/LocalizitionManager.h"
+#define TR(key) Localization::Get(key)
 
 std::vector<std::string> UI::DebugMessages = {"Welcome To Click-Craft Creator"};
 
@@ -8,9 +10,10 @@ std::string UI::selectedCategory = "All";
 std::string UI::searchFilter;
 AssetType UI::typeFilter = AssetType::OTHER;
 Asset* UI::selectedAsset = nullptr;
-int UI::thumbnailSize = 80;
+int UI::thumbnailSize = 85;
 bool UI::showTilesetPreview = false;
 char UI::searchBuffer[256] = "";
+Entity* UI::selectedSceneEntity = nullptr;
 
 bool UI::showTileSelectionWindow = false;
 Asset* UI::selectedTileset = nullptr;
@@ -19,14 +22,42 @@ Vector2 UI::selectedTileCoords = {0, 0};
 int UI::tilesetTileWidth = 16;
 int UI::tilesetTileHeight = 16;
 bool UI::tileMapModified = false;
+bool UI::bulkEditActive = false;
+int UI::bulkEditStartX = 0;
+int UI::bulkEditStartY = 0;
+int UI::bulkEditEndX = 0;
+int UI::bulkEditEndY = 0;
+float UI::controlPanelWidthRatio = 0.25f;
+float UI::assetConsoleHeightRatio = 0.25f;
 
 void UI::RenderControlPanel(Engine& engine, const Grid& grid) {
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 4.0f, io.DisplaySize.y - io.DisplaySize.y / 4.0f));
+    float panelWidth = io.DisplaySize.x * controlPanelWidthRatio;
+    float fixedDebugHeight = io.DisplaySize.y / 4.0f;
+
+    ImGui::SetNextWindowSize(ImVec2(panelWidth, io.DisplaySize.y - fixedDebugHeight));
     ImGui::SetNextWindowPos(ImVec2(0, 0));
+
     ImGui::Begin("Control Panel##MainWindow", nullptr);
+
     RenderModeControls(engine);
     RenderCameraResolutionControls(engine);
+    ImGui::Separator();
+    ImGui::Text("%s", TR("asset_management"));
+
+
+    if (ImGui::Button(TR("import_asset"), ImVec2(-1, 35))) {
+        engine.GetAssetImporter().SetOpen(true);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Open Asset Importer to load textures dynamically");
+    }
+
+    // Keyboard shortcut
+    if (IsKeyPressed(KEY_F8)) {
+        engine.GetAssetImporter().SetOpen(!engine.GetAssetImporter().IsOpen());
+    }
+
     RenderTileSceneContext(engine, grid);
 
     ImGui::End();
@@ -34,10 +65,13 @@ void UI::RenderControlPanel(Engine& engine, const Grid& grid) {
 
 void UI::RenderDebugConsole() {
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x / 4.0f, io.DisplaySize.y / 4.0f));
-    ImGui::SetNextWindowPos(ImVec2(0, io.DisplaySize.y - io.DisplaySize.y / 4.0f));
+    float panelWidth = io.DisplaySize.x * controlPanelWidthRatio;
+    float fixedDebugHeight = io.DisplaySize.y / 4.0f;
+
+    ImGui::SetNextWindowSize(ImVec2(panelWidth, fixedDebugHeight));
+    ImGui::SetNextWindowPos(ImVec2(0, io.DisplaySize.y - fixedDebugHeight));
     ImGui::Begin("Debug Console##DebugWindow", nullptr);
-    if (ImGui::Button("Clear Console")) {
+    if (ImGui::Button(TR("clear_console"))) {
         ClearDebugMessages();
     }
     ImGui::SameLine();
@@ -64,12 +98,22 @@ void UI::RenderDebugConsole() {
 
 void UI::RenderAssetConsole(Engine& engine) {
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x - io.DisplaySize.x / 4.0f, io.DisplaySize.y / 4.0f));
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 4.0f, io.DisplaySize.y - io.DisplaySize.y / 4.0f));
+    float panelWidth = io.DisplaySize.x * controlPanelWidthRatio;
+    float consoleHeight = io.DisplaySize.y * assetConsoleHeightRatio;
+
+    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x - panelWidth, consoleHeight));
+    ImGui::SetNextWindowPos(ImVec2(panelWidth, io.DisplaySize.y - consoleHeight));
     ImGui::Begin("Asset Console", nullptr,
                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
     AssetManager& assetManager = engine.GetAssetManager();
+
+    if (ImGui::Button("+ Import New Asset", ImVec2(150, 30))) {
+        engine.GetAssetImporter().SetOpen(true);
+    }
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Add textures without hardcoding");
+    ImGui::Separator();
 
     std::vector<std::string> categories = assetManager.GetCategories();
     std::vector<Asset*> allAssets = assetManager.GetAllAssets();
@@ -110,14 +154,14 @@ void UI::RenderAssetFilters(AssetManager& assetManager, const std::vector<std::s
         searchBarBuffer[sizeof(searchBarBuffer) - 1] = '\0';
     }
 
-    if (ImGui::InputText("Search", searchBarBuffer, sizeof(searchBarBuffer))) {
+    if (ImGui::InputText(TR("search"), searchBarBuffer, sizeof(searchBarBuffer))) {
         searchFilter = std::string(searchBarBuffer);
     }
     ImGui::SameLine();
 
     // Category filter
     ImGui::SetNextItemWidth(150);
-    if (ImGui::BeginCombo("Category", selectedCategory.c_str())) {
+    if (ImGui::BeginCombo(TR("category"), selectedCategory.c_str())) {
         if (ImGui::Selectable("All", selectedCategory == "All")) {
             selectedCategory = "All";
         }
@@ -151,11 +195,16 @@ void UI::RenderAssetFilters(AssetManager& assetManager, const std::vector<std::s
 
     // Thumbnail size control
     ImGui::SetNextItemWidth(100);
-    ImGui::SliderInt("Thumb Size", &thumbnailSize, 40, 120);
+    ImGui::SliderInt("Thumb Size", &thumbnailSize, 85, 120);
     ImGui::SameLine();
 
     // Asset count
     ImGui::Text("Assets: %d", assetManager.GetAssetCount());
+    ImGui::SameLine();
+
+    ImGui::SetNextItemWidth(100);
+    ImGui::SliderFloat("Console Size", &UI::assetConsoleHeightRatio, 0.15f, 0.60f, "%.2f");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Adjust Asset Console Height");
 }
 
 void UI::RenderCategoryList(const std::vector<std::string>& categories, std::vector<Asset*>& allAssets) {
@@ -232,28 +281,96 @@ void UI::RenderAssetThumbnail(Asset* asset) {
 
     ImGui::BeginGroup();
 
-    // Thumbnail background
+    // Get position before anything is drawn
     ImVec2 cursorPos = ImGui::GetCursorScreenPos();
     ImDrawList* drawList = ImGui::GetWindowDrawList();
 
+    // Draw background for selected items
     if (isSelected) {
         drawList->AddRectFilled(cursorPos,
                                ImVec2(cursorPos.x + thumbSize.x + 10, cursorPos.y + thumbSize.y + 25),
                                ImGui::GetColorU32(ImVec4(0.3f, 0.5f, 0.8f, 0.3f)));
     }
 
-    // Thumbnail image
+    // FIX: Use InvisibleButton to reserve space and handle clicks
+    // This creates a proper bounding box that ImGui respects
+    ImGui::PushID(asset->id.c_str());
+    ImGui::InvisibleButton("thumb", thumbSize);
+    ImGui::PopID();
+
+    // Get the exact bounds of the button
+    ImVec2 imageMin = ImGui::GetItemRectMin();
+    ImVec2 imageMax = ImGui::GetItemRectMax();
+
+    // Check if item was clicked
+    bool clicked = ImGui::IsItemClicked();
+    bool hovered = ImGui::IsItemHovered();
+
+    // Now draw the actual image using the draw list (this respects clipping)
     if (asset->loaded) {
-        ImVec2 uv0 = ImVec2(0, 0);
-        ImVec2 uv1 = ImVec2(1, 1);
-        ImGui::Image((ImTextureID)static_cast<uintptr_t>(asset->texture.id), thumbSize, uv0, uv1);
+        ImVec2 uv0, uv1;
+
+        // Check if this asset has a selected frame (SpriteSourceRect is set)
+        if (asset->SpriteSourceRect.width > 0 && asset->SpriteSourceRect.height > 0) {
+            // Use the selected frame from the spritesheet
+            uv0 = ImVec2(
+                asset->SpriteSourceRect.x / static_cast<float>(asset->texture.width),
+                asset->SpriteSourceRect.y / static_cast<float>(asset->texture.height)
+            );
+            uv1 = ImVec2(
+                (asset->SpriteSourceRect.x + asset->SpriteSourceRect.width) / static_cast<float>(asset->texture.width),
+                (asset->SpriteSourceRect.y + asset->SpriteSourceRect.height) / static_cast<float>(asset->texture.height)
+            );
+        } else {
+            // Use full texture
+            uv0 = ImVec2(0, 0);
+            uv1 = ImVec2(1, 1);
+        }
+
+        // Calculate proper aspect-correct size that fits
+        float texWidth = asset->SpriteSourceRect.width > 0 ?
+                        asset->SpriteSourceRect.width :
+                        static_cast<float>(asset->texture.width);
+        float texHeight = asset->SpriteSourceRect.height > 0 ?
+                         asset->SpriteSourceRect.height :
+                         static_cast<float>(asset->texture.height);
+
+        float scaleX = thumbSize.x / texWidth;
+        float scaleY = thumbSize.y / texHeight;
+        float scale = std::min(scaleX, scaleY);
+
+        ImVec2 displaySize(texWidth * scale, texHeight * scale);
+
+        // Center within the button bounds
+        ImVec2 imageCenter = ImVec2(
+            imageMin.x + (thumbSize.x - displaySize.x) * 0.5f,
+            imageMin.y + (thumbSize.y - displaySize.y) * 0.5f
+        );
+
+        ImVec2 imageFinalMin = imageCenter;
+        ImVec2 imageFinalMax = ImVec2(imageCenter.x + displaySize.x, imageCenter.y + displaySize.y);
+
+        // Draw using AddImage (which properly clips to parent bounds)
+        drawList->AddImage(
+            (ImTextureID)static_cast<uintptr_t>(asset->texture.id),
+            imageFinalMin,
+            imageFinalMax,
+            uv0,
+            uv1,
+            IM_COL32(255, 255, 255, 255)
+        );
     } else {
-        ImGui::Dummy(thumbSize);
-        ImGui::SameLine();
-        ImGui::Text("Not loaded");
+        // Draw "Not loaded" text centered
+        const char* notLoadedText = "Not loaded";
+        ImVec2 textSize = ImGui::CalcTextSize(notLoadedText);
+        ImVec2 textPos = ImVec2(
+            imageMin.x + (thumbSize.x - textSize.x) * 0.5f,
+            imageMin.y + (thumbSize.y - textSize.y) * 0.5f
+        );
+        drawList->AddText(textPos, IM_COL32(150, 150, 150, 255), notLoadedText);
     }
 
-    // Asset name
+    // Asset name below thumbnail
     std::string displayName = asset->name;
     if (displayName.length() > 12) {
         displayName = displayName.substr(0, 12) + "...";
@@ -263,20 +380,36 @@ void UI::RenderAssetThumbnail(Asset* asset) {
     ImGui::EndGroup();
 
     // Selection handling
-    if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) {
+    if (clicked) {
         selectedAsset = asset;
         SetDebugMessage("[ASSET] Selected: " + asset->name);
     }
 
     // Tooltip on hover
-    if (ImGui::IsItemHovered()) {
+    if (hovered) {
         ImGui::BeginTooltip();
         ImGui::Text("Name: %s", asset->name.c_str());
         ImGui::Text("ID: %s", asset->id.c_str());
         ImGui::Text("Type: %s", GetAssetTypeName(asset->type).c_str());
         ImGui::Text("Category: %s", asset->category.c_str());
+
+        // Show frame info if it's a selected frame
+        if (asset->SpriteSourceRect.width > 0) {
+            ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f),
+                             "Frame: %.0fx%.0f at (%.0f, %.0f)",
+                             asset->SpriteSourceRect.width,
+                             asset->SpriteSourceRect.height,
+                             asset->SpriteSourceRect.x,
+                             asset->SpriteSourceRect.y);
+        }
+
         ImGui::EndTooltip();
     }
+}
+
+bool UI::IsMouseOverUI() {
+    ImGuiIO& io = ImGui::GetIO();
+    return io.WantCaptureMouse;
 }
 
 void UI::RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetManager) {
@@ -289,9 +422,31 @@ void UI::RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetMan
     ImGui::SetColumnWidth(0, 150);
     if (asset->loaded) {
         ImVec2 previewSize = ImVec2(128, 128);
-        ImVec2 uv0 = ImVec2(0, 0);
-        ImVec2 uv1 = ImVec2(1, 1);
+        ImVec2 uv0, uv1;
+
+        // Check if this asset has a selected frame
+        if (asset->SpriteSourceRect.width > 0 && asset->SpriteSourceRect.height > 0) {
+            // Show the selected frame
+            uv0 = ImVec2(
+                asset->SpriteSourceRect.x / static_cast<float>(asset->texture.width),
+                asset->SpriteSourceRect.y / static_cast<float>(asset->texture.height)
+            );
+            uv1 = ImVec2(
+                (asset->SpriteSourceRect.x + asset->SpriteSourceRect.width) / static_cast<float>(asset->texture.width),
+                (asset->SpriteSourceRect.y + asset->SpriteSourceRect.height) / static_cast<float>(asset->texture.height)
+            );
+        } else {
+            // Show full texture
+            uv0 = ImVec2(0, 0);
+            uv1 = ImVec2(1, 1);
+        }
+
         ImGui::Image((ImTextureID)static_cast<uintptr_t>(asset->texture.id), previewSize, uv0, uv1);
+
+        // Add indicator if showing selected frame
+        if (asset->SpriteSourceRect.width > 0) {
+            ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Selected Frame");
+        }
     }
 
     ImGui::NextColumn();
@@ -304,16 +459,35 @@ void UI::RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetMan
     ImGui::Text("Path: %s", asset->path.c_str());
 
     if (asset->loaded) {
-        ImGui::Text("Dimensions: %dx%d", asset->texture.width, asset->texture.height);
+        ImGui::Text("Texture Size: %dx%d", asset->texture.width, asset->texture.height);
+
+        // Show frame info if available
+        if (asset->SpriteSourceRect.width > 0 && asset->SpriteSourceRect.height > 0) {
+            ImGui::Separator();
+            ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Selected Frame:");
+            ImGui::Text("Size: %.0fx%.0f",
+                       asset->SpriteSourceRect.width,
+                       asset->SpriteSourceRect.height);
+            ImGui::Text("Position: (%.0f, %.0f)",
+                       asset->SpriteSourceRect.x,
+                       asset->SpriteSourceRect.y);
+
+            // Calculate frame coordinates
+            if (asset->SpriteSize.x > 0 && asset->SpriteSize.y > 0) {
+                int frameX = static_cast<int>(asset->SpriteSourceRect.x / asset->SpriteSize.x);
+                int frameY = static_cast<int>(asset->SpriteSourceRect.y / asset->SpriteSize.y);
+                ImGui::Text("Frame: Column %d, Row %d", frameX, frameY);
+            }
+        }
 
         // Show tileset info if it's a tileset
         if (asset->type == AssetType::TILESET) {
-            ImGui::Text("Sub-sprites: %zu", asset->subSprites.size());
+            ImGui::Separator();
+            ImGui::Text("Tileset Tiles: %zu", asset->subSprites.size());
 
-            // Calculate grid dimensions
             if (!asset->subSprites.empty()) {
-                int cols = asset->texture.width / 16; // Assuming 16x16 tiles
-                int rows = asset->texture.height / 16;
+                int cols = asset->texture.width / static_cast<int>(asset->SpriteSize.x);
+                int rows = asset->texture.height / static_cast<int>(asset->SpriteSize.y);
                 ImGui::Text("Grid: %dx%d tiles", cols, rows);
             }
         }
@@ -331,12 +505,60 @@ void UI::RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetMan
         }
     } else {
         if (ImGui::Button("Use Asset", ImVec2(120, 30))) {
-            engine.currentTool = Engine::ToolState::PLACING_ASSET;
-            engine.assetToolState.asset = asset;
-            engine.assetToolState.isPlacing = true;
-            SetDebugMessage("[ASSET] Ready to place: " + asset->name);
+            if (asset->type == AssetType::PLAYER) {
+                engine.currentTool = Engine::ToolState::PLACING_PLAYER;
+                engine.GetPlayerManager().SetPlacementAsset(asset);
+                SetDebugMessage("[PLAYER] Ready to place player using asset: " + asset->name);
+            } else if (asset->type == AssetType::ENEMY) {
+                engine.currentTool = Engine::ToolState::PLACING_ENEMY;
+                engine.GetEnemyManager().SetPlacementAsset(asset);
+                SetDebugMessage("[ENEMY] Ready to place enemy using asset: " + asset->name);
+            } else {
+                engine.currentTool = Engine::ToolState::PLACING_ASSET;
+                engine.assetToolState.asset = asset;
+                engine.assetToolState.isPlacing = true;
+                SetDebugMessage("[ASSET] Ready to place: " + asset->name);
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Remove Asset", ImVec2(120, 30))) {
+            engine.currentTool = Engine::ToolState::REMOVING_ASSET;
+            SetDebugMessage("[ASSET] Click on an asset to remove it");
         }
     }
+
+    if (asset->type == AssetType::ANIMATED_SPRITESHEET ||
+        asset->type == AssetType::STATIC_SPRITESHEET ||
+        asset->type == AssetType::INDIVIDUAL_TEXTURE ||
+        asset->type == AssetType::PLAYER ||
+        asset->type == AssetType::ENEMY) {
+
+        if (asset->loaded && asset->texture.id != 0) {
+            ImGui::SameLine();
+
+            // Color the button differently if asset already has animations
+            if (asset->HasAnimations()) {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
+            }
+
+            if (ImGui::Button("Edit Animations", ImVec2(120, 30))) {
+                engine.GetAnimationEditor().OpenForAsset(asset);
+                SetDebugMessage("[ANIMATION] Opened animation editor for: " + asset->name);
+            }
+
+            if (asset->HasAnimations()) {
+                ImGui::PopStyleColor();
+            }
+
+            // Show animation count if has animations
+            if (asset->HasAnimations() && asset->animationSet) {
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f),
+                                 "(%zu anims)",
+                                 asset->animationSet->animations.size());
+            }
+        }
+        }
 
     // Tileset preview for tileset assets
     if (asset->type == AssetType::TILESET && !asset->subSprites.empty()) {
@@ -348,9 +570,193 @@ void UI::RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetMan
 
     ImGui::Columns(1);
 
-    // Tileset preview window
-    if (showTilesetPreview && asset->type == AssetType::TILESET) {
-        RenderTilesetPreview(asset);
+    if (asset->type != AssetType::TILESET) {if (asset->type != AssetType::TILESET) {
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Text("Placed Asset Settings:");
+
+        Scene* scene = engine.GetCurrentScene();
+        if (scene) {
+            auto& entities = scene->GetEditModeEntities();
+            std::vector<Entity*> matchingEntities;
+
+            for (auto& entity : entities) {
+                if (auto* staticEntity = dynamic_cast<StaticEntity*>(entity.get())) {
+                    if (staticEntity->GetAsset() == asset) {
+                        matchingEntities.push_back(staticEntity);
+                    }
+                } else if (auto* playerEntity = dynamic_cast<PlayerEntity*>(entity.get())) {
+                    if (playerEntity->GetAsset() == asset) {
+                        matchingEntities.push_back(playerEntity);
+                    }
+                } else if (auto* enemyEntity = dynamic_cast<EnemyEntity*>(entity.get())) {
+                    if (enemyEntity->GetAsset() == asset) {
+                        matchingEntities.push_back(enemyEntity);
+                    }
+                }
+            }
+
+            if (matchingEntities.empty()) {
+                ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1), "No instances placed yet");
+            } else {
+                ImGui::Text("Placed instances: %d", (int)matchingEntities.size());
+
+                ImGui::Spacing();
+                if (ImGui::Button("Select in Scene", ImVec2(-1, 30))) {
+                    engine.currentTool = Engine::ToolState::NONE;
+                    selectedSceneEntity = nullptr;
+                    SetDebugMessage("[ASSET] Click an instance in the scene to edit it");
+                }
+
+                if (engine.currentMode == Engine::Mode::EDIT &&
+                    !IsMouseOverUI() &&
+                    IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+
+                    Vector2 mouseScreen = GetMousePosition();
+                    Vector2 worldPos = GetScreenToWorld2D(mouseScreen, engine.GetGrid().GetCamera());
+
+                    for (auto* entity : matchingEntities) {
+                        Rectangle bounds = entity->GetDrawBounds();
+                        if (CheckCollisionPointRec(worldPos, bounds)) {
+                            selectedSceneEntity = entity;
+                            break;
+                        }
+                    }
+                    }
+
+                if (selectedSceneEntity && std::find(matchingEntities.begin(), matchingEntities.end(), selectedSceneEntity) == matchingEntities.end()) {
+                    selectedSceneEntity = nullptr;
+                }
+
+                if (selectedSceneEntity &&
+                    selectedSceneEntity->SupportsScaling() &&
+                    std::find(matchingEntities.begin(), matchingEntities.end(), selectedSceneEntity) != matchingEntities.end()) {
+
+                    ImGui::Spacing();
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1), "Selected Instance:");
+
+                    if (auto* staticEntity = dynamic_cast<StaticEntity*>(selectedSceneEntity)) {
+                        ImGui::Text("Type: Static");
+                        ImGui::Text("Position: (%d, %d)", staticEntity->GetGridX(), staticEntity->GetGridY());
+                        ImGui::Text("Layer: %d", staticEntity->GetLayer());
+                    } else if (auto* playerEntity = dynamic_cast<PlayerEntity*>(selectedSceneEntity)) {
+                        ImGui::Text("Type: Player");
+                        ImGui::Text("Position: (%d, %d)", playerEntity->GetGridX(), playerEntity->GetGridY());
+                        ImGui::Text("Layer: %d", playerEntity->GetLayer());
+                    } else if (auto* enemyEntity = dynamic_cast<EnemyEntity*>(selectedSceneEntity)) {
+                        ImGui::Text("Type: Enemy");
+                        ImGui::Text("Position: (%d, %d)", enemyEntity->GetGridX(), enemyEntity->GetGridY());
+                        ImGui::Text("Layer: %d", enemyEntity->GetLayer());
+                    }
+
+                    float currentScale = selectedSceneEntity->GetScale();
+                    ImGui::Text("Current Scale: %.2fx", currentScale);
+
+                    ImGui::Spacing();
+                    ImGui::Text("Adjust Scale:");
+
+                    float scaleValue = currentScale;
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::SliderFloat("##ScaleSlider", &scaleValue, 0.25f, 4.0f, "%.2fx")) {
+                        selectedSceneEntity->SetScale(scaleValue);
+                        SetDebugMessage("[ASSET] Scale set to " + std::to_string(scaleValue));
+                    }
+
+                    ImGui::Text("Quick Scale:");
+                    if (ImGui::Button("0.25x", ImVec2(60, 25))) selectedSceneEntity->SetScale(0.25f);
+                    ImGui::SameLine();
+                    if (ImGui::Button("0.5x", ImVec2(60, 25))) selectedSceneEntity->SetScale(0.5f);
+                    ImGui::SameLine();
+                    if (ImGui::Button("0.75x", ImVec2(60, 25))) selectedSceneEntity->SetScale(0.75f);
+                    ImGui::SameLine();
+                    if (ImGui::Button("1x", ImVec2(60, 25))) selectedSceneEntity->SetScale(1.0f);
+
+                    if (ImGui::Button("1.5x", ImVec2(60, 25))) selectedSceneEntity->SetScale(1.5f);
+                    ImGui::SameLine();
+                    if (ImGui::Button("2x", ImVec2(60, 25))) selectedSceneEntity->SetScale(2.0f);
+                    ImGui::SameLine();
+                    if (ImGui::Button("3x", ImVec2(60, 25))) selectedSceneEntity->SetScale(3.0f);
+                    ImGui::SameLine();
+                    if (ImGui::Button("4x", ImVec2(60, 25))) selectedSceneEntity->SetScale(4.0f);
+
+                    ImGui::Spacing();
+                    ImGui::Separator();
+                    if (matchingEntities.size() > 1) {
+                        ImGui::Text("Apply to All Instances:");
+                        if (ImGui::Button("Scale All to Match", ImVec2(-1, 30))) {
+                            float scaleToApply = selectedSceneEntity->GetScale();
+                            for (auto* entity : matchingEntities) {
+                                if (entity->SupportsScaling()) {
+                                    entity->SetScale(scaleToApply);
+                                }
+                            }
+                        }
+                    }
+
+                    ImGui::Spacing();
+                    if (ImGui::Button("Deselect", ImVec2(-1, 25))) {
+                        selectedSceneEntity = nullptr;
+                        SetDebugMessage("[ASSET] Deselected asset instance");
+                    }
+
+                    } else if (!matchingEntities.empty()) {
+                        ImGui::Spacing();
+                        ImGui::TextColored(ImVec4(1, 1, 0, 1),
+                            "Click 'Select in Scene',\nthen click an instance\nto adjust its scale");
+
+                        ImGui::Spacing();
+                        ImGui::Separator();
+                        ImGui::Text("All Instances:");
+                        ImGui::BeginChild("InstancesList", ImVec2(0, 100), true);
+
+                        for (size_t i = 0; i < matchingEntities.size(); i++) {
+                            auto* entity = matchingEntities[i];
+                            ImGui::PushID(static_cast<int>(i));
+
+                            std::string typeName = "Entity";
+                            int gx = 0;
+                            int gy = 0;
+                            int entLayer = 0;
+
+                            if (auto* staticEntity = dynamic_cast<StaticEntity*>(entity)) {
+                                typeName = "Static";
+                                gx = staticEntity->GetGridX();
+                                gy = staticEntity->GetGridY();
+                                entLayer = staticEntity->GetLayer();
+                            } else if (auto* playerEntity = dynamic_cast<PlayerEntity*>(entity)) {
+                                typeName = "Player";
+                                gx = playerEntity->GetGridX();
+                                gy = playerEntity->GetGridY();
+                                entLayer = playerEntity->GetLayer();
+                            } else if (auto* enemyEntity = dynamic_cast<EnemyEntity*>(entity)) {
+                                typeName = "Enemy";
+                                gx = enemyEntity->GetGridX();
+                                gy = enemyEntity->GetGridY();
+                                entLayer = enemyEntity->GetLayer();
+                            }
+
+                            char label[128];
+                            snprintf(label, sizeof(label), "%s Pos:(%d,%d) Scale:%.2fx Layer:%d",
+                                     typeName.c_str(), gx, gy, entity->GetScale(), entLayer);
+
+                            if (ImGui::Selectable(label, selectedSceneEntity == entity)) {
+                                selectedSceneEntity = entity;
+                            }
+
+                            ImGui::PopID();
+                        }
+
+                        ImGui::EndChild();
+                    }
+                }
+            }
+        }
+
+        // Tileset preview window
+        if (showTilesetPreview && asset->type == AssetType::TILESET) {
+            RenderTilesetPreview(asset);
+        }
     }
 }
 
@@ -403,15 +809,22 @@ void UI::RenderTileSceneContext(Engine& engine, const Grid& grid) {
     static int contextTileY = 0;
 
     if (engine.currentMode == Engine::Mode::EDIT && !io.WantCaptureMouse && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-        float panelWidth     = io.DisplaySize.x / 4.0f;
+        float panelWidth     = io.DisplaySize.x * controlPanelWidthRatio;
         float sceneTabHeight = io.DisplaySize.y / 18.0f;
-        float panelHeight    = io.DisplaySize.y - io.DisplaySize.y / 4.0f;
+        float panelHeight    = io.DisplaySize.y - (io.DisplaySize.y * UI::assetConsoleHeightRatio);
         Vector2 mouseScreen = GetMousePosition();
         if (mouseScreen.x > panelWidth && mouseScreen.y > sceneTabHeight && mouseScreen.y < panelHeight) {
             Vector2 worldPos = GetScreenToWorld2D(mouseScreen, grid.GetCamera());
             int tileSize = grid.GetTileSize();
             int gridX = static_cast<int>(worldPos.x) / tileSize;
             int gridY = static_cast<int>(worldPos.y) / tileSize;
+
+            // If bulk edit is active, update the end position
+            if (bulkEditActive) {
+                bulkEditEndX = gridX;
+                bulkEditEndY = gridY;
+            }
+
             if (Scene *scene = engine.GetCurrentScene()) {
                 TileMap &tileMap = scene->GetTileMap();
                 if (tileMap.HasTile(gridX, gridY)) {
@@ -440,6 +853,30 @@ void UI::RenderTileSceneContext(Engine& engine, const Grid& grid) {
             }
         }
     }
+
+    // VISUAL FEEDBACK: Draw selection rectangle in edit mode
+    if (bulkEditActive && engine.currentMode == Engine::Mode::EDIT) {
+        int minX = std::min(bulkEditStartX, bulkEditEndX);
+        int maxX = std::max(bulkEditStartX, bulkEditEndX);
+        int minY = std::min(bulkEditStartY, bulkEditEndY);
+        int maxY = std::max(bulkEditStartY, bulkEditEndY);
+
+        int tileSize = grid.GetTileSize();
+        Camera2D camera = grid.GetCamera();
+
+        // Draw selection rectangle overlay
+        BeginMode2D(camera);
+        Rectangle selectionRect = {
+            static_cast<float>(minX * tileSize),
+            static_cast<float>(minY * tileSize),
+            static_cast<float>((maxX - minX + 1) * tileSize),
+            static_cast<float>((maxY - minY + 1) * tileSize)
+        };
+        DrawRectangleLinesEx(selectionRect, 3.0f, YELLOW);
+        DrawRectangleRec(selectionRect, Fade(YELLOW, 0.2f));
+        EndMode2D();
+    }
+
     if (ImGui::BeginPopup("TileContextMenu")) {
         Scene* scene = engine.GetCurrentScene();
         if (!scene) {
@@ -448,7 +885,7 @@ void UI::RenderTileSceneContext(Engine& engine, const Grid& grid) {
             return;
         }
         TileMap& tileMap = scene->GetTileMap();
-        std::vector<TileData>* tileVecPtr = tileMap.GetTilePtr(contextTileX, contextTileY);
+        std::map<int, TileData> *tileVecPtr = tileMap.GetTilePtr(contextTileX, contextTileY);
 
         if (!tileVecPtr || tileVecPtr->empty()) {
             ImGui::Text("No tile at this position");
@@ -461,8 +898,8 @@ void UI::RenderTileSceneContext(Engine& engine, const Grid& grid) {
         const int currentLayer = engine.GetCurrentTileLayer();
         TileData* tile = nullptr;
         for (auto& t : *tileVecPtr) {
-            if (t.layer == currentLayer) {
-                tile = &t;
+            if (t.second.layer == currentLayer) {
+                tile = &t.second;
                 break;
             }
         }
@@ -479,6 +916,135 @@ void UI::RenderTileSceneContext(Engine& engine, const Grid& grid) {
                     " at (" + std::to_string(contextTileX) + ", " +
                     std::to_string(contextTileY) + ") on layer " +
                     std::to_string(tile->layer));
+            }
+
+            // BULK COLLISION EDIT FEATURE WITH LIVE PREVIEW
+            ImGui::Separator();
+            ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), "Bulk Collision Edit");
+
+            if (!bulkEditActive) {
+                if (ImGui::Button("Start Selection", ImVec2(-1, 0))) {
+                    bulkEditStartX = contextTileX;
+                    bulkEditStartY = contextTileY;
+                    bulkEditEndX = contextTileX;
+                    bulkEditEndY = contextTileY;
+                    bulkEditActive = true;
+                    SetDebugMessage("[BULK EDIT] Selection started at (" +
+                                  std::to_string(contextTileX) + ", " +
+                                  std::to_string(contextTileY) + ") - Right-click tiles to expand selection");
+                }
+                ImGui::TextDisabled("Start a rectangular selection");
+            } else {
+                // Update end position to current tile
+                bulkEditEndX = contextTileX;
+                bulkEditEndY = contextTileY;
+
+                int minX = std::min(bulkEditStartX, bulkEditEndX);
+                int maxX = std::max(bulkEditStartX, bulkEditEndX);
+                int minY = std::min(bulkEditStartY, bulkEditEndY);
+                int maxY = std::max(bulkEditStartY, bulkEditEndY);
+
+                // Count actual tiles in selection
+                int tilesWithData = 0;
+                int emptyPositions = 0;
+                for (int y = minY; y <= maxY; y++) {
+                    for (int x = minX; x <= maxX; x++) {
+                        std::map<int, TileData> *checkTile = tileMap.GetTilePtr(x, y);
+                        if (checkTile && !checkTile->empty()) {
+                            tilesWithData++;
+                        } else {
+                            emptyPositions++;
+                        }
+                    }
+                }
+
+                ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "SELECTION ACTIVE");
+                ImGui::Text("From: (%d,%d) To: (%d,%d)",
+                           bulkEditStartX, bulkEditStartY,
+                           bulkEditEndX, bulkEditEndY);
+                ImGui::Text("Grid: %dx%d cells",
+                           (maxX - minX + 1), (maxY - minY + 1));
+                ImGui::Text("Tiles: %d | Empty: %d", tilesWithData, emptyPositions);
+                ImGui::TextDisabled("Right-click more tiles to adjust");
+
+                ImGui::Separator();
+
+                // Enable Collision button
+                if (ImGui::Button("Enable Collision", ImVec2(-1, 0))) {
+                    int changed = 0;
+
+                    for (int y = minY; y <= maxY; y++) {
+                        for (int x = minX; x <= maxX; x++) {
+                            std::map<int, TileData> *tileVecPtr = tileMap.GetTilePtr(x, y);
+                            if (tileVecPtr && !tileVecPtr->empty()) {
+                                bool foundOnLayer = false;
+                                for (auto& t : *tileVecPtr) {
+                                    if (t.second.layer == currentLayer) {
+                                        if (!t.second.isSolid) {
+                                            t.second.isSolid = true;
+                                            changed++;
+                                        }
+                                        foundOnLayer = true;
+                                        break;
+                                    }
+                                }
+                                if (!foundOnLayer) {
+                                    for (auto& t : *tileVecPtr) {
+                                        if (!t.second.isSolid) {
+                                            t.second.isSolid = true;
+                                            changed++;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    tileMapModified = true;
+                    SetDebugMessage("[BULK EDIT] Enabled collision on " + std::to_string(changed) + " tiles");
+                    bulkEditActive = false;
+                }
+
+                // Disable Collision button
+                if (ImGui::Button("Disable Collision", ImVec2(-1, 0))) {
+                    int changed = 0;
+
+                    for (int y = minY; y <= maxY; y++) {
+                        for (int x = minX; x <= maxX; x++) {
+                            std::map<int, TileData> *tile_vec_ptr = tileMap.GetTilePtr(x, y);
+                            if (tile_vec_ptr && !tile_vec_ptr->empty()) {
+                                bool foundOnLayer = false;
+                                for (auto& t : *tile_vec_ptr) {
+                                    if (t.second.layer == currentLayer) {
+                                        if (t.second.isSolid) {
+                                            t.second.isSolid = false;
+                                            changed++;
+                                        }
+                                        foundOnLayer = true;
+                                        break;
+                                    }
+                                }
+                                if (!foundOnLayer) {
+                                    for (auto& t : *tile_vec_ptr) {
+                                        if (t.second.isSolid) {
+                                            t.second.isSolid = false;
+                                            changed++;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    tileMapModified = true;
+                    SetDebugMessage("[BULK EDIT] Disabled collision on " + std::to_string(changed) + " tiles");
+                    bulkEditActive = false;
+                }
+
+                if (ImGui::Button("Cancel Selection", ImVec2(-1, 0))) {
+                    bulkEditActive = false;
+                    SetDebugMessage("[BULK EDIT] Selection cancelled");
+                }
             }
 
             ImGui::Separator();
@@ -571,13 +1137,21 @@ void UI::RenderTileSceneContext(Engine& engine, const Grid& grid) {
 }
 
 void UI::RenderLayerVisibilityControls(Engine &engine) {
-    // Simple numbered buttons grid
+    // Simple numbered buttons grid with wrapping
     int currentLayers = engine.GetTotalLayers();
     ImGui::Text("Layers:");
     const float buttonSize = 30.0f;
+    float itemSpacing = ImGui::GetStyle().ItemSpacing.x;
+
+    // Calculate how many buttons fit per row
+    float availableWidth = ImGui::GetContentRegionAvail().x;
+    int buttonsPerRow = std::max(1, static_cast<int>(availableWidth + itemSpacing) / static_cast<int>(buttonSize + itemSpacing));
 
     for (int i = 0; i < currentLayers; i++) {
-        if (i > 0) ImGui::SameLine();
+        // Add wrapping - start new row when we hit the limit
+        if (i > 0 && (i % buttonsPerRow) != 0) {
+            ImGui::SameLine();
+        }
 
         bool isVisible = engine.IsLayerVisible(i);
         int currentLayer = engine.GetCurrentTileLayer();
@@ -617,28 +1191,19 @@ void UI::RenderLayerVisibilityControls(Engine &engine) {
 
             ImGui::Separator();
 
-            /* TODO: IMPLEMENT THIS
-            if (i < Engine::MAX_LAYERS - 1 && Engine::MAX_LAYERS > 1) {
-                if (ImGui::MenuItem("Delete Layer")) {
-                    // Note: This would need to shift all layers above down
-                    // For now, just show the option (we'll implement logic below)
-                    SetDebugMessage("[TODO] Delete layer functionality not implemented yet");
-                }
-            } else if (i == Engine::MAX_LAYERS - 1 && Engine::MAX_LAYERS > 1) {
-                bool canRemove = engine.CanRemoveLayer();
-                if (!canRemove) {
-                    ImGui::BeginDisabled();
-                }
-                if (ImGui::MenuItem("Delete Layer")) {
-                    engine.RemoveLayer();
-                }
-                if (!canRemove) {
-                    ImGui::EndDisabled();
-                }
-                if (ImGui::IsItemHovered() && !canRemove) {
-                    ImGui::SetTooltip("Cannot delete layer: Contains tiles or assets");
-                }
-            }*/
+            bool canRemoveThisLayer = engine.CanRemoveSpecificLayer(i);
+            if (!canRemoveThisLayer) {
+                ImGui::BeginDisabled();
+            }
+            if (ImGui::MenuItem(TR("delete_layer"))) {
+                engine.RemoveSpecificLayer(i);
+            }
+            if (!canRemoveThisLayer) {
+                ImGui::EndDisabled();
+            }
+            if (ImGui::IsItemHovered() && !canRemoveThisLayer) {
+                ImGui::SetTooltip("Cannot delete: Layer contains tiles/assets or is the last layer");
+            }
 
             ImGui::EndPopup();
         }
@@ -649,33 +1214,14 @@ void UI::RenderLayerVisibilityControls(Engine &engine) {
             ImGui::Text("Layer %d", i);
             ImGui::Text("Visible: %s", isVisible ? "Yes" : "No");
             ImGui::Text("Active: %s", isActive ? "Yes" : "No");
-            ImGui::Text("Left-click: Set active");
-            ImGui::Text("Right-click: Options");
+            ImGui::Text("Left click: Set active");
+            ImGui::Text("Right click: Options");
             ImGui::EndTooltip();
         }
     }
 
-    // Add layer button
-    ImGui::Spacing();
-    if (ImGui::Button("+ Add Layer", ImVec2(100, 25))) {
-        if (engine.GetTotalLayers() < Engine::MAX_LAYERS) {
-            engine.AddLayer();
-        }
-    }
-
-    // Quick visibility toggles
-    ImGui::Spacing();
-    ImGui::Text("Quick Actions:");
-    if (ImGui::Button("Show All", ImVec2(80, 25))) {
-        for (int i = 0; i < Engine::MAX_LAYERS; i++) {
-            engine.SetLayerVisible(i, true);
-        }
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Hide All", ImVec2(80, 25))) {
-        for (int i = 0; i < Engine::MAX_LAYERS; i++) {
-            engine.SetLayerVisible(i, false);
-        }
+    if (ImGui::Button(TR("add_layer"), ImVec2(100, 0))) {
+        engine.AddLayer();
     }
 }
 
@@ -747,18 +1293,6 @@ void UI::RenderTileSelectionWindow(Engine& engine, Asset* tileset) {
                                (selectedRect.y + selectedRect.height) / static_cast<float>(tileset->texture.height));
 
             ImGui::Image((ImTextureID)static_cast<uintptr_t>(tileset->texture.id), previewSize, uv0, uv1);
-
-            // Confirm selection button
-            ImGui::SameLine();
-            if (ImGui::Button("Place This Tile", ImVec2(120, 64))) {
-                // Set engine to tile placement mode
-                engine.currentTool = Engine::ToolState::PLACING_TILE;
-                engine.tileToolState.tileset = tileset;
-                engine.tileToolState.selectedTileIndex = selectedTileIndex;
-                engine.tileToolState.isPlacingTile = true;
-                SetDebugMessage("[TILE] Ready to place tile #" +
-                               std::to_string(selectedTileIndex) + " from " + tileset->name);
-            }
         } else {
             ImGui::Text("No tile selected - click on a tile below");
         }
@@ -766,13 +1300,13 @@ void UI::RenderTileSelectionWindow(Engine& engine, Asset* tileset) {
         ImGui::Separator();
 
         // Display the tileset grid for selection
-        RenderTilesetGrid(tileset);
+        RenderTilesetGrid(engine, tileset);
 
     }
     ImGui::End();
 }
 
-void UI::RenderTilesetGrid(Asset* tileset) {
+void UI::RenderTilesetGrid(Engine& engine, Asset* tileset) {
     if (!tileset->loaded || tileset->subSprites.empty()) {
         ImGui::Text("Tileset not loaded or no sub-sprites available");
         return;
@@ -834,8 +1368,12 @@ void UI::RenderTilesetGrid(Asset* tileset) {
             if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) {
                 selectedTileIndex = tileIndex;
                 selectedTileCoords = {static_cast<float>(x), static_cast<float>(y)};
-                SetDebugMessage("[TILE] Selected tile #" + std::to_string(tileIndex) +
-                               " at (" + std::to_string(x) + "," + std::to_string(y) + ")");
+                engine.currentTool = Engine::ToolState::PLACING_TILE;
+                engine.tileToolState.tileset = tileset;
+                engine.tileToolState.selectedTileIndex = tileIndex;
+                engine.tileToolState.isPlacingTile = true;
+
+                SetDebugMessage("[TILE] Selected and ready to place tile #" + std::to_string(tileIndex));
             }
 
             // Tile tooltip
@@ -866,8 +1404,10 @@ void UI::RenderPlayModeWindow(Engine& engine) {
     //int currentIndex = engine.GetSelectedResolutionIndex();
 
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x - io.DisplaySize.x / 4.0f, io.DisplaySize.y - io.DisplaySize.y / 4.0f));
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 4.0f, 0));
+    float panelWidth = io.DisplaySize.x * controlPanelWidthRatio;
+    float consoleHeight = io.DisplaySize.y * assetConsoleHeightRatio;
+    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x - panelWidth, io.DisplaySize.y - consoleHeight));
+    ImGui::SetNextWindowPos(ImVec2(panelWidth, 0));
     //std::cout << io.DisplaySize.x << " " << io.DisplaySize.y << std::endl;
 
     if (ImGui::Begin("Play Mode", &engine.playModeWindowOpen, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
@@ -934,36 +1474,22 @@ void UI::RenderModeControls(Engine& engine) {
 
     if (engine.currentMode == Engine::Mode::EDIT) {
         ImGui::Separator();
-        ImGui::Text("Edit Tools:");
+        ImGui::Text("Removal Tools:");
 
-        // Player placement/removal
-        if (ImGui::Button("Place Player", ImVec2(120, 0))) {
-            engine.currentTool = (engine.currentTool == Engine::ToolState::PLACING_PLAYER) ?
-                Engine::ToolState::NONE : Engine::ToolState::PLACING_PLAYER;
-        }
         ImGui::SameLine();
-        if (ImGui::Button("Remove Player", ImVec2(120, 0))) {
+        if (ImGui::Button("Remove Player", ImVec2(100, 0))) {
             engine.currentTool = (engine.currentTool == Engine::ToolState::REMOVING_PLAYER) ?
                 Engine::ToolState::NONE : Engine::ToolState::REMOVING_PLAYER;
         }
 
-        // Enemy placement/removal
-        if (ImGui::Button("Place Enemy", ImVec2(120, 0))) {
-            engine.currentTool = (engine.currentTool == Engine::ToolState::PLACING_ENEMY) ?
-                Engine::ToolState::NONE : Engine::ToolState::PLACING_ENEMY;
-        }
         ImGui::SameLine();
-        if (ImGui::Button("Remove Enemy", ImVec2(120, 0))) {
+        if (ImGui::Button("Remove Enemy", ImVec2(100, 0))) {
             engine.currentTool = (engine.currentTool == Engine::ToolState::REMOVING_ENEMY) ?
                 Engine::ToolState::NONE : Engine::ToolState::REMOVING_ENEMY;
         }
 
-        if (ImGui::Button("Place Tile", ImVec2(120, 0))) {
-            engine.currentTool = (engine.currentTool == Engine::ToolState::PLACING_TILE) ?
-                Engine::ToolState::NONE : Engine::ToolState::PLACING_TILE;
-        }
         ImGui::SameLine();
-        if (ImGui::Button("Remove Tile", ImVec2(120, 0))) {
+        if (ImGui::Button("Remove Tile", ImVec2(100, 0))) {
             engine.currentTool = (engine.currentTool == Engine::ToolState::REMOVING_TILE) ?
                 Engine::ToolState::NONE : Engine::ToolState::REMOVING_TILE;
         }
@@ -988,22 +1514,7 @@ void UI::RenderModeControls(Engine& engine) {
         // Show layer management controls
         RenderLayerVisibilityControls(engine);
 
-        // Layer info for hovered tile
         ImGui::Separator();
-        ImGui::Text("Hover Info:");
-        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Hover over tiles to see layer indicators");
-        ImGui::TextColored(ImVec4(0.5f, 0.5f, 1.0f, 1.0f), "■ Background");
-        ImGui::SameLine();
-        ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "■ Ground");
-        ImGui::SameLine();
-        ImGui::TextColored(ImVec4(0.8f, 0.6f, 0.2f, 1.0f), "■ Decoration");
-        ImGui::TextColored(ImVec4(0.8f, 0.2f, 0.6f, 1.0f), "■ Foreground");
-        ImGui::SameLine();
-        ImGui::TextColored(ImVec4(0.6f, 0.2f, 0.8f, 1.0f), "■ Overlay");
-
-
-        ImGui::Separator();
-
         // Show current tool status
         ImGui::Text("Current Tool: ");
         ImGui::SameLine();
@@ -1016,24 +1527,25 @@ void UI::RenderModeControls(Engine& engine) {
             case Engine::ToolState::PLACING_TILE: ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Placing Tile"); break;
             case Engine::ToolState::REMOVING_TILE: ImGui::TextColored(ImVec4(0.8f, 0.2f, 0.2f, 1.0f), "Removing Tile"); break;
             case Engine::ToolState::PLACING_ASSET: ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Placing Asset"); break;
+            case Engine::ToolState::REMOVING_ASSET: ImGui::TextColored(ImVec4(0.8f, 0.2f, 0.2f, 1.0f), "Removing Asset"); break;
         }
 
         // Show enemy count
         ImGui::Text("Enemies: %d/10", engine.GetEnemyCount());
 
-        if (ImGui::Button("Clear Tool", ImVec2(120, 0))) {
+        if (ImGui::Button(TR("clear_tool"), ImVec2(120, 0))) {
             engine.ResetTool();
         }
         ImGui::Separator();
         ImGui::Text("Project:");
         static char filenameBuf[256] = "project.json";
         ImGui::InputText("Path:", filenameBuf, sizeof(filenameBuf));
-        if (ImGui::Button("Save Project", ImVec2(120, 0))) {
+        if (ImGui::Button(TR("save_project"), ImVec2(120, 0))) {
             SaveLoad::SaveProject(engine,std::string(filenameBuf));
             SetDebugMessage("[PROJECT] Saved project to " + std::string(filenameBuf));
         }
         ImGui::SameLine();
-        if (ImGui::Button("Load Project", ImVec2(120, 0))) {
+        if (ImGui::Button(TR("load_project"), ImVec2(120, 0))) {
             SaveLoad::LoadProject(engine, std::string(filenameBuf));
             SetDebugMessage("[PROJECT] Loaded project from " + std::string(filenameBuf));
         }
@@ -1090,11 +1602,10 @@ for (const auto& res : resolutions) {
 
 void UI::RenderNewSceneTab(Engine& engine) {
     ImGuiIO& io = ImGui::GetIO();
+    float panelWidth = io.DisplaySize.x * controlPanelWidthRatio;
 
-    ImGui::SetNextWindowSize(
-        ImVec2(io.DisplaySize.x - io.DisplaySize.x / 4.0f,
-               io.DisplaySize.y / 18.0f));
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 4.0f, 0));
+    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x - panelWidth, io.DisplaySize.y / 18.0f));
+    ImGui::SetNextWindowPos(ImVec2(panelWidth, 0));
 
     ImGui::Begin("Scenes", nullptr,
                  ImGuiWindowFlags_NoMove
@@ -1173,7 +1684,7 @@ void UI::RenderNewSceneTab(Engine& engine) {
 
             // Starting scene checkbox
             std::string startingID = engine.GetStartingSceneID();
-            bool isStarting   = (startingID == sceneID);
+            bool isStarting = (startingID == sceneID);
 
             if (ImGui::Checkbox("Starting scene", &isStarting)) {
                 if (isStarting) {
@@ -1207,4 +1718,8 @@ void UI::RenderNewSceneTab(Engine& engine) {
         }
     }
     ImGui::End();
+}
+
+void UI::ClearSelectedEntity() {
+    selectedSceneEntity = nullptr;
 }

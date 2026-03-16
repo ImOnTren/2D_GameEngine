@@ -25,6 +25,17 @@ public:
         return GridCamera;
     }
 
+    bool IsValidCell(int gridX, int gridY) const {
+        return gridX >= 0 && gridY >= 0;
+    }
+
+    bool IsValidWorldPosition(Vector2 worldPos) const {
+        const int tileSize = GetTileSize();
+        const int gridX = static_cast<int>(worldPos.x) / tileSize;
+        const int gridY = static_cast<int>(worldPos.y) / tileSize;
+        return IsValidCell(gridX, gridY);
+    }
+
 private:
     Camera2D GridCamera = { 0 };
     float zoom = 1.0f;

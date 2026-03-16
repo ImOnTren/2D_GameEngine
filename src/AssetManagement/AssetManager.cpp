@@ -31,6 +31,49 @@ void AssetManager::LoadTextureForAsset(Asset* asset) {
     }
 }
 
+void AssetManager::LoadAssetWithFrame(const std::string& id,
+                                     const std::string& name,
+                                     const std::string& category,
+                                     const std::string& path,
+                                     int frameWidth,
+                                     int frameHeight,
+                                     int selectedFrameX,
+                                     int selectedFrameY,
+                                     AssetType type) {
+    if (assets.find(id) != assets.end()) {
+        UI::SetDebugMessage("[ASSET] Asset with id " + id + " already exists");
+        return;
+    }
+
+    auto asset = std::make_unique<Asset>(id, name, category, path, type);
+
+    // Load the texture
+    LoadTextureForAsset(asset.get());
+
+    if (asset->loaded) {
+        // Store frame dimensions
+        asset->SpriteSize = {static_cast<float>(frameWidth), static_cast<float>(frameHeight)};
+
+        // Calculate and store the specific frame rectangle
+        // This is the ONLY frame we'll use for display/placement
+        asset->SpriteSourceRect = {
+            static_cast<float>(selectedFrameX * frameWidth),
+            static_cast<float>(selectedFrameY * frameHeight),
+            static_cast<float>(frameWidth),
+            static_cast<float>(frameHeight)
+        };
+        asset->hasSelectedFrame = true;
+
+        // subSprites remains empty
+
+        UI::SetDebugMessage("[ASSET] Loaded asset with selected frame (" +
+                          std::to_string(selectedFrameX) + ", " +
+                          std::to_string(selectedFrameY) + "): " + id);
+    }
+
+    assets[id] = std::move(asset);
+}
+
 Asset* AssetManager::GetAsset(const std::string& id){
     if (assets.find(id) != assets.end())
     {
@@ -61,7 +104,7 @@ std::vector<Asset*> AssetManager::GetAssetByType(const AssetType& type){
     return foundAssets;
 }
 
-const std::vector<Asset*> AssetManager::GetAllAssets(){
+std::vector<Asset*> AssetManager::GetAllAssets() const{
     std::vector<Asset*> allAssets;
     for (auto& [id, asset] : assets) {
         allAssets.push_back(asset.get());
@@ -114,28 +157,37 @@ void AssetManager::ProcessTileset(Asset* asset, int tileHeight, int tileWidth){
 }
 
 Rectangle AssetManager::GetSpecificSprite(const Asset* asset, const int& index){
-    if (!asset->loaded)
-    {
+    if (!asset->loaded) {
         UI::SetDebugMessage("[ASSET] Cannot get sprite: Asset not loaded");
         return {0, 0, 0, 0};
     }
-    if (asset->type == AssetType::INDIVIDUAL_TEXTURE){
-        if (asset->SpriteSourceRect.width == 0 || asset->SpriteSourceRect.height == 0){
-            return {0, 0, static_cast<float>(asset->texture.width), static_cast<float>(asset->texture.height)};
-        }
-        return asset->SpriteSourceRect;
-    }
-    if (index < 0 || index >= static_cast<int>(asset->subSprites.size()))
-    {
-        UI::SetDebugMessage("[ASSET] Invalid sprite index: " + std::to_string(index));
-        return {0, 0, 0, 0};
-    }
 
-    if (index < static_cast<int>(asset->subSprites.size()))
-    {
+    // Case 1: Asset is a TILESET with subSprites (hardcoded or imported tilesets)
+    if (asset->type == AssetType::TILESET && !asset->subSprites.empty()) {
+        if (index < 0 || index >= static_cast<int>(asset->subSprites.size())) {
+            UI::SetDebugMessage("[ASSET] Invalid sprite index: " + std::to_string(index));
+            return {0, 0, 0, 0};
+        }
         return asset->subSprites[index];
     }
-    return asset->subSprites[0];
+
+    // Case 2: Asset has a selected frame (imported animated/static assets)
+    // Use this ONLY for display purposes (thumbnails, placement)
+    // NOT for tile selection
+    if (asset->SpriteSourceRect.width > 0 && asset->SpriteSourceRect.height > 0) {
+        return asset->SpriteSourceRect;
+    }
+
+    // Case 3: Individual texture (full image)
+    if (asset->type == AssetType::INDIVIDUAL_TEXTURE) {
+        if (asset->SpriteSourceRect.width > 0 && asset->SpriteSourceRect.height > 0) {
+            return asset->SpriteSourceRect;
+        }
+        return {0, 0, static_cast<float>(asset->texture.width), static_cast<float>(asset->texture.height)};
+    }
+
+    // Case 4: Fallback - return full texture
+    return {0, 0, static_cast<float>(asset->texture.width), static_cast<float>(asset->texture.height)};
 }
 
 void AssetManager::LoadAsset(const std::string& id, const std::string& name,
@@ -153,9 +205,13 @@ void AssetManager::LoadAsset(const std::string& id, const std::string& name,
 
     LoadTextureForAsset(asset.get());
 
+    asset->SpriteSourceRect = {0, 0, 0, 0};
+
     if (spriteWidth > 0 && spriteHeight > 0){
         asset->SpriteSize = {static_cast<float>(spriteWidth), static_cast<float>(spriteHeight)};
-        ProcessTileset(asset.get(), spriteHeight, spriteWidth);
+        if (type == AssetType::TILESET) {
+            ProcessTileset(asset.get(), spriteHeight, spriteWidth);
+        }
     }
 
     assets[id] = std::move(asset);

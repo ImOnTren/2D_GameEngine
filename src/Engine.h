@@ -15,16 +15,21 @@
 #include "Entities/EnemyEntity.h"
 #include "Managers/EnemyManager.h"
 #include "UI/UI.h"
-#include "Managers/AssetManager.h"
+#include "AssetManagement/AssetManager.h"
 #include "Entities/TileMap.h"
 #include "Scene/Scene.h"
 #include "Entities/StaticEntity.h"
 #include "Project/SaveLoad.h"
+#include "Animation/Animation.h"
+#include "Animation/Animator.h"
+#include "Animation/AnimationEditor.h"
+#include "AssetManagement/AssetImporter.h"
+#include "AssetManagement/AssetDefinition.h"
 
 class Engine {
 public:
     enum class Mode { EDIT, PLAY };
-    enum class ToolState { NONE, PLACING_PLAYER, PLACING_ENEMY, PLACING_ASSET, REMOVING_PLAYER, REMOVING_ENEMY, PLACING_TILE, REMOVING_TILE };
+    enum class ToolState { NONE, PLACING_PLAYER, PLACING_ENEMY, PLACING_ASSET, REMOVING_ASSET, REMOVING_PLAYER, REMOVING_ENEMY, PLACING_TILE, REMOVING_TILE };
 
     Engine();
     ~Engine();
@@ -54,6 +59,8 @@ public:
     int GetCurrentTileLayer() const;
     void CycleLayerUp();
     void CycleLayerDown();
+    bool CanRemoveSpecificLayer(int layerIndex) const;
+    void RemoveSpecificLayer(int layerIndex);
 
     // Camera resolution settings
     struct CameraResolution {
@@ -229,6 +236,22 @@ public:
         HandleSceneDeletion(sceneIndex);
     }
 
+    AssetImporter& GetAssetImporter() {
+        return assetImporter;
+    }
+
+    AnimationEditor& GetAnimationEditor() {
+        return animationEditor;
+    }
+
+    PlayerManager &GetPlayerManager() {
+        return playerManager;
+    }
+
+     EnemyManager &GetEnemyManager() {
+        return enemyManager;
+    }
+
     void StartPlayMode();
     void StopPlayMode();
 
@@ -242,6 +265,15 @@ private:
     std::string currentSceneID;
     int nextSceneId = 1;
     std::string startingSceneID;
+    AnimationSet testAnimationSet;
+    Animator testAnimator;
+    Vector2 testAnimatorPosition = {200, 200};
+    AnimationEditor animationEditor;
+    AssetImporter assetImporter;
+
+    int lastPlacedTileX;
+    int lastPlacedTileY;
+    bool isPlacingTiles;
 
     Camera2D playerCamera;
     Rectangle playerCameraArea = {0, 0, 0, 0};
@@ -255,6 +287,7 @@ private:
     void HandleTileRemoval();
     void DrawHoveredTileLayerInfo();
     void HandleAssetPlacement();
+    void HandleAssetRemoval();
     void UpdateAssetPlacementPreview();
     void DrawAssetPlacementPreview() const;
     void HandleSceneCreation();
@@ -272,5 +305,4 @@ private:
     void UpdateEditModeCamera();
     void LoadAssets();
     void ResolveCollisionInPlayMode();
-
 };

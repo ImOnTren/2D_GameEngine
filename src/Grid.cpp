@@ -1,4 +1,5 @@
 #include "Grid.h"
+#include "UI/UI.h"
 
 Grid::Grid() {
     GridCamera.offset = { 0, 0 };
@@ -14,7 +15,7 @@ Grid::~Grid() {
 void Grid::Update() {
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
-    float panelWidth = static_cast<float>(screenWidth) / 4.0f;
+    float panelWidth = static_cast<float>(screenWidth) * UI::controlPanelWidthRatio;
     GridCamera.offset = { panelWidth, 0 };
 
     if (!initialized) {
@@ -57,8 +58,9 @@ void Grid::Draw() {
 
     const int screenWidth = GetScreenWidth();
     const int screenHeight = GetScreenHeight();
-    const float panelWidth = static_cast<float>(screenWidth) / 4.0f;
-    const float panelHeight = static_cast<float>(screenHeight) - (static_cast<float>(screenHeight) / 4.0f);
+    const float panelWidth = static_cast<float>(screenWidth) * UI::controlPanelWidthRatio;
+    const float consoleHeight = static_cast<float>(screenHeight) * UI::assetConsoleHeightRatio;
+    const float panelHeight = static_cast<float>(screenHeight) - consoleHeight;
     const float sceneTabHeight = static_cast<float>(screenHeight) / 18.0f;
 
     int startX, endX, startY, endY;
@@ -114,6 +116,13 @@ void Grid::Draw() {
 
     Vector2 position = { 0.0f, 0.0f };
 
+    BeginScissorMode(
+        static_cast<int>(panelWidth),
+        static_cast<int>(sceneTabHeight),
+        static_cast<int>(screenWidth - panelWidth),
+        static_cast<int>(panelHeight - sceneTabHeight)
+    );
+
     DrawTextureRec(gridTexture.texture, sourceRect, position, WHITE);
 
     // --- Highlight hovered cell only if inside grid bounds ---
@@ -132,4 +141,5 @@ void Grid::Draw() {
             EndMode2D();
         }
     }
+    EndScissorMode();
 }

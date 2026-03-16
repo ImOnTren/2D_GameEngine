@@ -4,6 +4,7 @@
 #include "Entities/TileMap.h"
 #include "Entities/PlayerEntity.h"
 #include "Entities/EnemyEntity.h"
+#include "Entities/StaticEntity.h"
 #include "Engine.h"
 #include "UI/UI.h"
 #include "nlohmann/json.hpp"
@@ -29,13 +30,15 @@ static Rectangle JsonToRect(const json& j) {
 }
 
 static json SerializeTileMap(const TileMap& tileMap) {
-    json j;
-    j = json::array();
-    for (const auto& [key, tileData] : tileMap.GetAllTiles()) {
+    json j = json::array();
+    for (auto& [key, layerMap] : tileMap.GetAllTiles()) {
         int x = static_cast<int>(key >> 32);
         int y = static_cast<int>(key & 0xFFFFFFFF);
-        std::vector<TileData> tilesAtPos = tileMap.GetTilesAtPosition(x, y);
-        for (const auto& tile : tilesAtPos) {
+
+        // Iterate through all layers at this position
+        for (auto const& [layerIdx, tile] : layerMap) {
+            if (tile.tileID.empty()) continue;
+
             json tileJson;
             tileJson["x"] = x;
             tileJson["y"] = y;
@@ -53,28 +56,53 @@ static json SerializeTileMap(const TileMap& tileMap) {
 }
 
 static json SerializeEntities(const std::vector<std::unique_ptr<Entity>>& entities) {
-    json j;
-    j = json::array();
+    json j = json::array();
+
     for (const auto& entity : entities) {
         json entityJson;
+
         if (auto player = dynamic_cast<PlayerEntity*>(entity.get())) {
             entityJson["type"] = "Player";
             entityJson["gridX"] = player->GetGridX();
             entityJson["gridY"] = player->GetGridY();
-        } else if (auto enemy = dynamic_cast<EnemyEntity*>(entity.get())) {
+            entityJson["layer"] = player->GetEntityLayer();
+            entityJson["scale"] = player->GetScale();
+            if (player->GetAsset() != nullptr) {
+                entityJson["assetID"] = player->GetAsset()->id;
+            }
+            j.push_back(entityJson);
+        }
+        else if (auto enemy = dynamic_cast<EnemyEntity*>(entity.get())) {
             entityJson["type"] = "Enemy";
             entityJson["gridX"] = enemy->GetGridX();
             entityJson["gridY"] = enemy->GetGridY();
+            entityJson["layer"] = enemy->GetEntityLayer();
+            entityJson["scale"] = enemy->GetScale();
+            if (enemy->GetAsset() != nullptr) {
+                entityJson["assetID"] = enemy->GetAsset()->id;
+            }
+            j.push_back(entityJson);
         }
-        j.push_back(entityJson);
+        else if (auto staticEnt = dynamic_cast<StaticEntity*>(entity.get())) {
+            entityJson["type"] = "Static";
+            entityJson["gridX"] = staticEnt->GetGridX();
+            entityJson["gridY"] = staticEnt->GetGridY();
+            entityJson["layer"] = staticEnt->GetEntityLayer();
+            entityJson["scale"] = staticEnt->GetScale();
+            if (staticEnt->GetAsset() != nullptr) {
+                entityJson["assetID"] = staticEnt->GetAsset()->id;
+            }
+            j.push_back(entityJson);
+        }
     }
+
     return j;
 }
 
 bool SaveLoad::SaveProject(Engine& engine, const std::string& filename) {
     try {
         json projectRoot;
-        projectRoot["version"] = "1.1";
+        projectRoot["version"] = "1.2";
 
         json engineJson;
         engineJson["selectedResolutionIndex"] = engine.GetSelectedResolutionIndex();
@@ -139,6 +167,29 @@ bool SaveLoad::LoadProject(Engine& engine, const std::string& filepath) {
         json scenesJson = projectRoot["scenes"];
         json engineJson = projectRoot["engine"];
 
+        // Load engine settings FIRST (before loading scenes)
+        // This ensures layer count is set before we try to load tiles with layers
+        if (engineJson.contains("totalLayers")) {
+            int totalLayers = engineJson.value("totalLayers", 5);
+            engine.SetTotalLayers(totalLayers);
+        }
+
+        if (engineJson.contains("activeLayer")) {
+            engine.SetCurrentTileLayer(engineJson.value("activeLayer", 0));
+        }
+
+        if (engineJson.contains("layerVisibility")) {
+            const auto& visibilityArray = engineJson["layerVisibility"];
+            if (visibilityArray.is_array()) {
+                for (size_t i = 0; i < visibilityArray.size(); i++) {
+                    if (i < static_cast<size_t>(engine.GetTotalLayers())) {
+                        engine.SetLayerVisible(static_cast<int>(i), visibilityArray[i].get<bool>());
+                    }
+                }
+            }
+        }
+
+        // Now clear and load scenes
         auto& scenes = engine.GetAllScenes();
         scenes.clear();
 
@@ -148,62 +199,101 @@ bool SaveLoad::LoadProject(Engine& engine, const std::string& filepath) {
 
             auto newScene = std::make_unique<Scene>(sceneId, sceneName);
 
+            // Load tiles
             if (scene.contains("tiles") && scene["tiles"].is_array()) {
                 TileMap& newTileMap = newScene->GetTileMap();
                 for (const auto& jsonTileMap : scene["tiles"]) {
                     int x = jsonTileMap.value("x", 0);
                     int y = jsonTileMap.value("y", 0);
+
+                    // Get tile ID first to check if it's valid
+                    std::string tileID = jsonTileMap.value("tileID", "");
+                    if (tileID.empty()) {
+                        // Skip empty tiles
+                        continue;
+                    }
+
                     TileData tileData;
-                    tileData.tileID = jsonTileMap.value("tileID", "");
+                    tileData.tileID = tileID;
                     tileData.tileIndex = jsonTileMap.value("tileIndex", 0);
                     tileData.isSolid = jsonTileMap.value("isSolid", false);
                     tileData.isSceneSwitcher = jsonTileMap.value("isSceneSwitcher", false);
                     tileData.targetSceneID = jsonTileMap.value("targetSceneID", "");
                     tileData.triggerKey = jsonTileMap.value("triggerKey", 0);
                     tileData.layer = jsonTileMap.value("layer", 0);
+
                     newTileMap.SetTile(x, y, tileData, tileData.layer);
                 }
             }
+
+            // Load entities
             if (scene.contains("entities") && scene["entities"].is_array()) {
                 auto& editModeEntities = newScene->GetEditModeEntities();
-                for (const auto& jsonEditModeEntity : scene["entities"]) {
-                    if (jsonEditModeEntity.contains("type")) {
-                        if (jsonEditModeEntity["type"] == "Player") {
-                            int gridX = jsonEditModeEntity.value("gridX", 0);
-                            int gridY = jsonEditModeEntity.value("gridY", 0);
-                            editModeEntities.push_back(
-                                std::make_unique<PlayerEntity>(engine.GetGrid(), gridX, gridY)
-                            );
+                for (const auto& jsonEntity : scene["entities"]) {
+                    if (!jsonEntity.contains("type")) {
+                        continue;
+                    }
+
+                    std::string entityType = jsonEntity["type"].get<std::string>();
+
+                    if (entityType == "Player") {
+                        int gridX = jsonEntity.value("gridX", 0);
+                        int gridY = jsonEntity.value("gridY", 0);
+                        int layer = jsonEntity.value("layer", 0);
+                        float scale = jsonEntity.value("scale", 1.0f);
+                        std::string assetID = jsonEntity.value("assetID", "");
+
+                        Asset* asset = engine.GetAssetManager().GetAsset(assetID);
+
+                        if (asset != nullptr) {
+                            auto playerEntity = std::make_unique<PlayerEntity>(engine.GetGrid(), asset, gridX, gridY);
+                            playerEntity->SetEntityLayer(layer);
+                            playerEntity->SetScale(scale);
+                            editModeEntities.push_back(std::move(playerEntity));
+                        } else {
+                            UI::SetDebugMessage("[WARNING] Player asset '" + assetID + "' not found. Skipping placement.");
                         }
-                        else if (jsonEditModeEntity["type"] == "Enemy") {
-                            int gridX = jsonEditModeEntity.value("gridX", 0);
-                            int gridY = jsonEditModeEntity.value("gridY", 0);
-                            editModeEntities.push_back(
-                                std::make_unique<EnemyEntity>(engine.GetGrid(), gridX, gridY)
+                    }
+                    else if (entityType == "Enemy") {
+                        int gridX = jsonEntity.value("gridX", 0);
+                        int gridY = jsonEntity.value("gridY", 0);
+                        int layer = jsonEntity.value("layer", 0);
+                        float scale = jsonEntity.value("scale", 1.0f);
+                        std::string assetID = jsonEntity.value("assetID", "");
+
+                        Asset* asset = engine.GetAssetManager().GetAsset(assetID);
+
+                        if (asset != nullptr) {
+                            auto enemyEntity = std::make_unique<EnemyEntity>(engine.GetGrid(), asset, gridX, gridY);
+                            enemyEntity->SetEntityLayer(layer);
+                            enemyEntity->SetScale(scale);
+                            editModeEntities.push_back(std::move(enemyEntity));
+                        }
+                    }
+                    else if (entityType == "Static") {
+                        int gridX = jsonEntity.value("gridX", 0);
+                        int gridY = jsonEntity.value("gridY", 0);
+                        int layer = jsonEntity.value("layer", 0);
+                        float scale = jsonEntity.value("scale", 1.0f);
+                        std::string assetID = jsonEntity.value("assetID", "");
+
+                        // Find the asset in AssetManager
+                        Asset* asset = engine.GetAssetManager().GetAsset(assetID);
+                        if (asset != nullptr) {
+                            auto staticEntity = std::make_unique<StaticEntity>(
+                                engine.GetGrid(), asset, gridX, gridY, layer
                             );
+                            staticEntity->SetScale(scale);
+                            staticEntity->SetEntityLayer(layer);
+                            editModeEntities.push_back(std::move(staticEntity));
+                        } else {
+                            UI::SetDebugMessage("[WARNING] Asset not found: " + assetID + " - Static entity skipped");
                         }
                     }
                 }
             }
-            if (engineJson.contains("totalLayers")) {
-                int totalLayers = engineJson.value("totalLayers", 5);
-                engine.SetTotalLayers(totalLayers);
-            }
 
-            if (engineJson.contains("activeLayer")) {
-                engine.SetCurrentTileLayer(engineJson.value("activeLayer", 0));
-            }
-
-            if (engineJson.contains("layerVisibility")) {
-                const auto& visibilityArray = engineJson["layerVisibility"];
-                if (visibilityArray.is_array()) {
-                    for (size_t i = 0; i < visibilityArray.size(); i++) {
-                        if (i < static_cast<size_t>(engine.GetTotalLayers())) {
-                            engine.SetLayerVisible(static_cast<int>(i), visibilityArray[i]);
-                        }
-                    }
-                }
-            }
+            // Load camera areas
             if (scene.contains("editModeCameraArea")) {
                 Rectangle editModeCameraArea = JsonToRect(scene["editModeCameraArea"]);
                 newScene->SetEditModeCameraArea(editModeCameraArea);
@@ -218,26 +308,32 @@ bool SaveLoad::LoadProject(Engine& engine, const std::string& filepath) {
                 Rectangle playModeCameraArea = JsonToRect(scene["playCamera"]);
                 newScene->SetPlayModeCameraArea(playModeCameraArea);
             }
+
             scenes[sceneId] = std::move(newScene);
         }
+
+        // Load remaining engine settings
         if (engineJson.contains("selectedResolutionIndex")) {
             engine.SetSelectedResolutionIndex(engineJson.value("selectedResolutionIndex", 1));
         }
         else {
             UI::SetDebugMessage("[WARNING] 'selectedResolutionIndex' not found in project file. Using default.");
         }
+
         if (engineJson.contains("currentSceneIndex")) {
-            engine.SetCurrentSceneByIndex(engineJson.value("currentSceneIndex", 1));
+            engine.SetCurrentSceneByIndex(engineJson.value("currentSceneIndex", 0));
         }
         else {
             UI::SetDebugMessage("[WARNING] 'currentSceneIndex' not found in project file. Using default.");
         }
+
         if (engineJson.contains("nextSceneId")) {
             engine.SetNextSceneId(engineJson.value("nextSceneId", 1));
         }
         else {
             UI::SetDebugMessage("[WARNING] 'nextSceneId' not found in project file. Using default.");
         }
+
         if (engineJson.contains("startingSceneID")) {
             engine.SetStartingSceneID(engineJson.value("startingSceneID", std::string("")));
         }
@@ -247,6 +343,7 @@ bool SaveLoad::LoadProject(Engine& engine, const std::string& filepath) {
         else {
             UI::SetDebugMessage("[WARNING] 'startingSceneID' not found in project file. Using default.");
         }
+
         engine.currentMode = Engine::Mode::EDIT;
         engine.StopPlayMode();
         engine.currentTool = Engine::ToolState::NONE;
