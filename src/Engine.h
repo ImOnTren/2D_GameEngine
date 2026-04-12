@@ -4,6 +4,7 @@
 #include <vector>
 #include <iostream>
 #include <memory>
+#include <unordered_map>
 
 #include "raylib.h"
 #include "imgui.h"
@@ -77,6 +78,24 @@ public:
         int activeLayer = 0;
         int totalLayers = 5;
     } tileToolState;
+
+    struct TileRef {
+        std::string assetID;
+        int tileIndex = 0;
+    };
+
+    struct AnimatedTileFrame {
+        std::string assetID;
+        int tileIndex = 0;
+        float duration = 0.2f;
+    };
+
+    struct AnimatedTileDefinition {
+        std::string id;
+        bool loop = true;
+        std::vector<TileRef> baseTiles;
+        std::vector<AnimatedTileFrame> frames;
+    };
 
     struct {
         Asset* asset = nullptr;
@@ -249,9 +268,18 @@ public:
         return playerManager;
     }
 
-     EnemyManager &GetEnemyManager() {
+    EnemyManager &GetEnemyManager() {
         return enemyManager;
     }
+
+    const std::vector<AnimatedTileDefinition>& GetAnimatedTileDefinitions() const {
+        return animatedTileDefinitions;
+    }
+
+    void SetAnimatedTileDefinitions(const std::vector<AnimatedTileDefinition>& definitions);
+    void ClearAnimatedTileDefinitions();
+    void SetAnimatedTileClock(float seconds);
+    float GetAnimatedTileClock() const;
 
     void StartPlayMode();
     void StopPlayMode();
@@ -271,6 +299,9 @@ private:
     Vector2 testAnimatorPosition = {200, 200};
     AnimationEditor animationEditor;
     AssetImporter assetImporter;
+    std::vector<AnimatedTileDefinition> animatedTileDefinitions;
+    std::unordered_map<std::string, size_t> animatedTileLookup;
+    float animatedTileClockSeconds = 0.0f;
 
     int lastPlacedTileX;
     int lastPlacedTileY;
@@ -297,6 +328,9 @@ private:
     void HandleSceneSwitchInPlayMode();
     void DrawEditModeTiles();
     void DrawPlayModeTiles();
+    bool ResolveAnimatedTileFrame(const TileData& tile, const Asset*& outAsset, Rectangle& outSourceRect);
+    void RebuildAnimatedTileLookup();
+    std::string BuildAnimatedTileKey(const std::string& assetID, int tileIndex) const;
     void HandleEditModeInput();
     bool IsMouseOverUI() const;
 

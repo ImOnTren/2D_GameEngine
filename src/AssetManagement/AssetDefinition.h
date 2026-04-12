@@ -8,6 +8,7 @@
 // Serializable animation data for persistence
 struct AnimationData {
     std::string name;
+    std::string sourceAssetId;
     int row = 0;
     int frameCount = 4;
     float frameRate = 8.0f;

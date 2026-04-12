@@ -116,8 +116,12 @@ void StaticEntity::Draw() {
         size.x,
         size.y
     };
+    Rectangle drawDest = destRect;
+    if (asset->hasAnimations && animator.IsPlaying() && animator.IsFlippedHorizontal()) {
+        drawDest.width = -drawDest.width;
+    }
 
-    DrawTexturePro(asset->texture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);
+    DrawTexturePro(asset->texture, sourceRect, drawDest, {0, 0}, 0.0f, WHITE);
 }
 
 std::unique_ptr<Entity> StaticEntity::CreateSnapshot() const {

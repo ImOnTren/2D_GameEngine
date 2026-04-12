@@ -29,6 +29,80 @@ static Rectangle JsonToRect(const json& j) {
     return rect;
 }
 
+static json SerializeAnimatedTileDefinitions(const Engine& engine) {
+    json result = json::array();
+    for (const auto& def : engine.GetAnimatedTileDefinitions()) {
+        json defJson;
+        defJson["id"] = def.id;
+        defJson["loop"] = def.loop;
+
+        json baseTilesJson = json::array();
+        for (const auto& base : def.baseTiles) {
+            json baseJson;
+            baseJson["assetID"] = base.assetID;
+            baseJson["tileIndex"] = base.tileIndex;
+            baseTilesJson.push_back(baseJson);
+        }
+        defJson["baseTiles"] = baseTilesJson;
+
+        json framesJson = json::array();
+        for (const auto& frame : def.frames) {
+            json frameJson;
+            frameJson["assetID"] = frame.assetID;
+            frameJson["tileIndex"] = frame.tileIndex;
+            frameJson["duration"] = frame.duration;
+            framesJson.push_back(frameJson);
+        }
+        defJson["frames"] = framesJson;
+        result.push_back(defJson);
+    }
+    return result;
+}
+
+static std::vector<Engine::AnimatedTileDefinition> DeserializeAnimatedTileDefinitions(const json& tileAnimationsJson) {
+    std::vector<Engine::AnimatedTileDefinition> definitions;
+    if (!tileAnimationsJson.is_array()) {
+        return definitions;
+    }
+
+    for (const auto& defJson : tileAnimationsJson) {
+        if (!defJson.is_object()) continue;
+
+        Engine::AnimatedTileDefinition def;
+        def.id = defJson.value("id", "");
+        def.loop = defJson.value("loop", true);
+
+        if (defJson.contains("baseTiles") && defJson["baseTiles"].is_array()) {
+            for (const auto& baseJson : defJson["baseTiles"]) {
+                Engine::TileRef baseRef;
+                baseRef.assetID = baseJson.value("assetID", "");
+                baseRef.tileIndex = baseJson.value("tileIndex", 0);
+                if (!baseRef.assetID.empty()) {
+                    def.baseTiles.push_back(baseRef);
+                }
+            }
+        }
+
+        if (defJson.contains("frames") && defJson["frames"].is_array()) {
+            for (const auto& frameJson : defJson["frames"]) {
+                Engine::AnimatedTileFrame frame;
+                frame.assetID = frameJson.value("assetID", "");
+                frame.tileIndex = frameJson.value("tileIndex", 0);
+                frame.duration = frameJson.value("duration", 0.2f);
+                if (!frame.assetID.empty()) {
+                    def.frames.push_back(frame);
+                }
+            }
+        }
+
+        if (!def.baseTiles.empty() && !def.frames.empty()) {
+            definitions.push_back(def);
+        }
+    }
+
+    return definitions;
+}
+
 static json SerializeTileMap(const TileMap& tileMap) {
     json j = json::array();
     for (auto& [key, layerMap] : tileMap.GetAllTiles()) {
@@ -120,6 +194,7 @@ bool SaveLoad::SaveProject(Engine& engine, const std::string& filename) {
         engineJson["layerVisibility"] = layerVisibilityJson;
 
         projectRoot["engine"] = engineJson;
+        projectRoot["tileAnimations"] = SerializeAnimatedTileDefinitions(engine);
 
         json scenesJson = json::array();
         const auto& scenes = engine.GetAllScenes();
@@ -166,6 +241,13 @@ bool SaveLoad::LoadProject(Engine& engine, const std::string& filepath) {
 
         json scenesJson = projectRoot["scenes"];
         json engineJson = projectRoot["engine"];
+
+        if (projectRoot.contains("tileAnimations")) {
+            engine.SetAnimatedTileDefinitions(DeserializeAnimatedTileDefinitions(projectRoot["tileAnimations"]));
+        } else {
+            engine.ClearAnimatedTileDefinitions();
+        }
+        engine.SetAnimatedTileClock(0.0f);
 
         // Load engine settings FIRST (before loading scenes)
         // This ensures layer count is set before we try to load tiles with layers

@@ -1,6 +1,7 @@
 #include "UI.h"
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include "Engine.h"
 #include "../Managers/LocalizationManager.h"
 #define TR(key) Localization::Get(key)
@@ -12,7 +13,6 @@ std::string UI::searchFilter;
 AssetType UI::typeFilter = AssetType::OTHER;
 Asset* UI::selectedAsset = nullptr;
 int UI::thumbnailSize = 85;
-bool UI::showTilesetPreview = false;
 char UI::searchBuffer[256] = "";
 Entity* UI::selectedSceneEntity = nullptr;
 
@@ -29,6 +29,15 @@ int UI::bulkEditStartY = 0;
 int UI::bulkEditEndX = 0;
 int UI::bulkEditEndY = 0;
 UI::TutorialState UI::tutorialState;
+bool UI::showTileAnimationEditorWindow = false;
+int UI::selectedTileAnimationDefIndex = -1;
+char UI::tileAnimationIdBuffer[128] = "";
+bool UI::tileAnimationLoop = true;
+char UI::tileAnimationBaseAssetBuffer[128] = "";
+int UI::tileAnimationBaseIndex = 0;
+char UI::tileAnimationFrameAssetBuffer[128] = "";
+int UI::tileAnimationFrameIndex = 0;
+float UI::tileAnimationFrameDuration = 0.15f;
 float UI::controlPanelWidthRatio = 0.25f;
 float UI::assetConsoleHeightRatio = 0.25f;
 
@@ -264,6 +273,9 @@ void UI::RenderAssetConsole(Engine& engine) {
 
     if (showTileSelectionWindow && selectedTileset) {
         RenderTileSelectionWindow(engine, selectedTileset);
+    }
+    if (showTileAnimationEditorWindow) {
+        RenderTileAnimationEditorWindow(engine);
     }
 
     ImGui::End();
@@ -636,6 +648,19 @@ void UI::RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetMan
             selectedTileIndex = -1; // Reset selection
             SetDebugMessage("[TILESET] Opening tile selection for: " + asset->name);
         }
+        ImGui::SameLine();
+        if (ImGui::Button("Tile Animations", ImVec2(120, 30))) {
+            showTileAnimationEditorWindow = true;
+            if (selectedTileset != asset) {
+                selectedTileset = asset;
+                selectedTileIndex = -1;
+            }
+            if (selectedTileIndex >= 0) {
+                tileAnimationBaseIndex = selectedTileIndex;
+            }
+            strncpy_s(tileAnimationBaseAssetBuffer, asset->id.c_str(), sizeof(tileAnimationBaseAssetBuffer) - 1);
+            tileAnimationBaseAssetBuffer[sizeof(tileAnimationBaseAssetBuffer) - 1] = '\0';
+        }
     } else {
         if (ImGui::Button(TR("use_asset"), ImVec2(120, 30))) {
             if (asset->type == AssetType::PLAYER) {
@@ -692,14 +717,6 @@ void UI::RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetMan
             }
         }
         }
-
-    // Tileset preview for tileset assets
-    if (asset->type == AssetType::TILESET && !asset->subSprites.empty()) {
-        ImGui::SameLine();
-        if (ImGui::Button(TR("show_tileset"), ImVec2(120, 30))) {
-            showTilesetPreview = !showTilesetPreview;
-        }
-    }
 
     ImGui::Columns(1);
 
@@ -886,53 +903,7 @@ void UI::RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetMan
             }
         }
 
-        // Tileset preview window
-        if (showTilesetPreview && asset->type == AssetType::TILESET) {
-            RenderTilesetPreview(asset);
-        }
     }
-}
-
-void UI::RenderTilesetPreview(const Asset* asset) {
-    ImGuiIO io = ImGui::GetIO();
-    ImGui::SetNextWindowSize(ImVec2(600, static_cast<float>(GetScreenHeight())), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x + (io.DisplaySize.x + 600), 0), ImGuiCond_FirstUseEver);
-
-    ImGui::Begin("Tileset Preview", &showTilesetPreview, ImGuiWindowFlags_AlwaysAutoResize);
-
-    ImGui::Text("Tileset: %s (%zu sub-sprites)", asset->name.c_str(), asset->subSprites.size());
-    ImGui::Separator();
-
-    // Display all sub-sprites in a grid
-    int columns = 12;
-    int count = 0;
-
-    for (const auto& spriteRect : asset->subSprites) {
-        if (count % columns != 0) {
-            ImGui::SameLine();
-        }
-
-        // Create a mini texture for each sub-sprite
-        ImVec2 uv0 = ImVec2(spriteRect.x / static_cast<float>(asset->texture.width),
-                           (spriteRect.y + spriteRect.height) / static_cast<float>(asset->texture.height));
-        ImVec2 uv1 = ImVec2((spriteRect.x + spriteRect.width) / static_cast<float>(asset->texture.width),
-                           spriteRect.y / static_cast<float>(asset->texture.height));
-
-        ImGui::Image((ImTextureID)static_cast<uintptr_t>(asset->texture.id),
-                    ImVec2(32, 32), uv0, uv1);
-
-        if (ImGui::IsItemHovered()) {
-            ImGui::BeginTooltip();
-            ImGui::Text("Sprite %d", count);
-            ImGui::Text("Pos: %.0f,%.0f", spriteRect.x, spriteRect.y);
-            ImGui::Text("Size: %.0fx%.0f", spriteRect.width, spriteRect.height);
-            ImGui::EndTooltip();
-        }
-
-        count++;
-    }
-
-    ImGui::End();
 }
 
 void UI::RenderTileSceneContext(Engine& engine, const Grid& grid) {
@@ -1528,6 +1499,198 @@ void UI::RenderTilesetGrid(Engine& engine, Asset* tileset) {
     }
 
     ImGui::EndChild();
+}
+
+void UI::RenderTileAnimationEditorWindow(Engine& engine) {
+    ImGui::SetNextWindowSize(ImVec2(760, 520), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Tile Animation Editor", &showTileAnimationEditorWindow)) {
+        ImGui::End();
+        return;
+    }
+
+    auto loadSelectedDefToEditorState = [&](const Engine::AnimatedTileDefinition& def) {
+        strncpy(tileAnimationIdBuffer, def.id.c_str(), sizeof(tileAnimationIdBuffer) - 1);
+        tileAnimationIdBuffer[sizeof(tileAnimationIdBuffer) - 1] = '\0';
+        tileAnimationLoop = def.loop;
+
+        if (!def.baseTiles.empty()) {
+            strncpy(tileAnimationBaseAssetBuffer, def.baseTiles[0].assetID.c_str(), sizeof(tileAnimationBaseAssetBuffer) - 1);
+            tileAnimationBaseAssetBuffer[sizeof(tileAnimationBaseAssetBuffer) - 1] = '\0';
+            tileAnimationBaseIndex = def.baseTiles[0].tileIndex;
+        } else {
+            tileAnimationBaseAssetBuffer[0] = '\0';
+            tileAnimationBaseIndex = 0;
+        }
+    };
+
+    const auto& definitionsRef = engine.GetAnimatedTileDefinitions();
+    if (selectedTileAnimationDefIndex >= static_cast<int>(definitionsRef.size())) {
+        selectedTileAnimationDefIndex = definitionsRef.empty() ? -1 : static_cast<int>(definitionsRef.size()) - 1;
+    }
+
+    if (ImGui::Button("New Definition", ImVec2(140, 28))) {
+        std::vector<Engine::AnimatedTileDefinition> definitions(definitionsRef.begin(), definitionsRef.end());
+        Engine::AnimatedTileDefinition def;
+        def.id = "tile_anim_" + std::to_string(definitions.size() + 1);
+        def.loop = true;
+
+        if (selectedTileset) {
+            Engine::TileRef baseRef;
+            baseRef.assetID = selectedTileset->id;
+            baseRef.tileIndex = std::max(0, selectedTileIndex);
+            def.baseTiles.push_back(baseRef);
+        }
+
+        definitions.push_back(def);
+        engine.SetAnimatedTileDefinitions(definitions);
+        selectedTileAnimationDefIndex = static_cast<int>(definitions.size()) - 1;
+        loadSelectedDefToEditorState(definitions.back());
+        SetDebugMessage("[TILE ANIM] Created new tile animation definition");
+    }
+
+    ImGui::SameLine();
+    if (selectedTileAnimationDefIndex >= 0) {
+        if (ImGui::Button("Delete Selected", ImVec2(140, 28))) {
+            std::vector<Engine::AnimatedTileDefinition> definitions(definitionsRef.begin(), definitionsRef.end());
+            if (selectedTileAnimationDefIndex < static_cast<int>(definitions.size())) {
+                definitions.erase(definitions.begin() + selectedTileAnimationDefIndex);
+                engine.SetAnimatedTileDefinitions(definitions);
+                selectedTileAnimationDefIndex = definitions.empty() ? -1 : std::max(0, selectedTileAnimationDefIndex - 1);
+                if (selectedTileAnimationDefIndex >= 0) {
+                    loadSelectedDefToEditorState(definitions[selectedTileAnimationDefIndex]);
+                }
+                SetDebugMessage("[TILE ANIM] Deleted tile animation definition");
+            }
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::Columns(2, "TileAnimColumns", true);
+    ImGui::SetColumnWidth(0, 260.0f);
+
+    ImGui::Text("Definitions");
+    ImGui::BeginChild("TileAnimDefinitionList", ImVec2(0, 0), true);
+    for (int i = 0; i < static_cast<int>(definitionsRef.size()); ++i) {
+        const auto& def = definitionsRef[i];
+        std::string label = def.id.empty() ? ("<unnamed>##" + std::to_string(i)) : (def.id + "##" + std::to_string(i));
+        if (ImGui::Selectable(label.c_str(), selectedTileAnimationDefIndex == i)) {
+            selectedTileAnimationDefIndex = i;
+            loadSelectedDefToEditorState(def);
+        }
+    }
+    ImGui::EndChild();
+
+    ImGui::NextColumn();
+    ImGui::Text("Editor");
+    ImGui::BeginChild("TileAnimEditorPanel", ImVec2(0, 0), true);
+    if (selectedTileAnimationDefIndex < 0 || selectedTileAnimationDefIndex >= static_cast<int>(definitionsRef.size())) {
+        ImGui::TextDisabled("Select a definition to edit.");
+        ImGui::EndChild();
+        ImGui::Columns(1);
+        ImGui::End();
+        return;
+    }
+
+    const auto& selectedDef = definitionsRef[selectedTileAnimationDefIndex];
+
+    ImGui::InputText("ID", tileAnimationIdBuffer, sizeof(tileAnimationIdBuffer));
+    ImGui::Checkbox("Loop", &tileAnimationLoop);
+
+    ImGui::Separator();
+    ImGui::Text("Base Tile");
+    ImGui::InputText("Base Asset ID", tileAnimationBaseAssetBuffer, sizeof(tileAnimationBaseAssetBuffer));
+    ImGui::InputInt("Base Tile Index", &tileAnimationBaseIndex);
+    tileAnimationBaseIndex = std::max(0, tileAnimationBaseIndex);
+
+    if (ImGui::Button("Use Currently Selected Tile", ImVec2(220, 0))) {
+        if (selectedTileset && selectedTileIndex >= 0) {
+            strncpy(tileAnimationBaseAssetBuffer, selectedTileset->id.c_str(), sizeof(tileAnimationBaseAssetBuffer) - 1);
+            tileAnimationBaseAssetBuffer[sizeof(tileAnimationBaseAssetBuffer) - 1] = '\0';
+            tileAnimationBaseIndex = selectedTileIndex;
+        } else {
+            SetDebugMessage("[TILE ANIM] Select a tile in the Tile Selection window first");
+        }
+    }
+
+    if (ImGui::Button("Apply Definition Header", ImVec2(220, 0))) {
+        if (strlen(tileAnimationIdBuffer) == 0 || strlen(tileAnimationBaseAssetBuffer) == 0) {
+            SetDebugMessage("[TILE ANIM] ID and Base Asset ID are required");
+        } else {
+            std::vector<Engine::AnimatedTileDefinition> definitions(definitionsRef.begin(), definitionsRef.end());
+            auto& def = definitions[selectedTileAnimationDefIndex];
+            def.id = tileAnimationIdBuffer;
+            def.loop = tileAnimationLoop;
+            def.baseTiles.clear();
+            Engine::TileRef baseRef;
+            baseRef.assetID = tileAnimationBaseAssetBuffer;
+            baseRef.tileIndex = tileAnimationBaseIndex;
+            def.baseTiles.push_back(baseRef);
+            engine.SetAnimatedTileDefinitions(definitions);
+            SetDebugMessage("[TILE ANIM] Updated definition header");
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Frames");
+    int removeFrameIndex = -1;
+    for (int i = 0; i < static_cast<int>(selectedDef.frames.size()); ++i) {
+        const auto& frame = selectedDef.frames[i];
+        ImGui::PushID(i);
+        ImGui::Text("Frame %d: asset=%s, tile=%d, duration=%.3f", i, frame.assetID.c_str(), frame.tileIndex, frame.duration);
+        ImGui::SameLine();
+        if (ImGui::Button("Remove")) {
+            removeFrameIndex = i;
+        }
+        ImGui::PopID();
+    }
+
+    if (removeFrameIndex >= 0) {
+        std::vector<Engine::AnimatedTileDefinition> definitions(definitionsRef.begin(), definitionsRef.end());
+        auto& def = definitions[selectedTileAnimationDefIndex];
+        if (removeFrameIndex < static_cast<int>(def.frames.size())) {
+            def.frames.erase(def.frames.begin() + removeFrameIndex);
+            engine.SetAnimatedTileDefinitions(definitions);
+            SetDebugMessage("[TILE ANIM] Removed frame");
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Add Frame");
+    ImGui::InputText("Frame Asset ID", tileAnimationFrameAssetBuffer, sizeof(tileAnimationFrameAssetBuffer));
+    ImGui::InputInt("Frame Tile Index", &tileAnimationFrameIndex);
+    ImGui::InputFloat("Frame Duration (s)", &tileAnimationFrameDuration, 0.01f, 0.05f, "%.3f");
+    tileAnimationFrameIndex = std::max(0, tileAnimationFrameIndex);
+    tileAnimationFrameDuration = std::max(0.01f, tileAnimationFrameDuration);
+
+    if (ImGui::Button("Use Selected Tile For Frame", ImVec2(220, 0))) {
+        if (selectedTileset && selectedTileIndex >= 0) {
+            strncpy(tileAnimationFrameAssetBuffer, selectedTileset->id.c_str(), sizeof(tileAnimationFrameAssetBuffer) - 1);
+            tileAnimationFrameAssetBuffer[sizeof(tileAnimationFrameAssetBuffer) - 1] = '\0';
+            tileAnimationFrameIndex = selectedTileIndex;
+        } else {
+            SetDebugMessage("[TILE ANIM] Select a tile in the Tile Selection window first");
+        }
+    }
+
+    if (ImGui::Button("Add Frame", ImVec2(120, 0))) {
+        if (strlen(tileAnimationFrameAssetBuffer) == 0) {
+            SetDebugMessage("[TILE ANIM] Frame Asset ID is required");
+        } else {
+            std::vector<Engine::AnimatedTileDefinition> definitions(definitionsRef.begin(), definitionsRef.end());
+            auto& def = definitions[selectedTileAnimationDefIndex];
+            Engine::AnimatedTileFrame frame;
+            frame.assetID = tileAnimationFrameAssetBuffer;
+            frame.tileIndex = tileAnimationFrameIndex;
+            frame.duration = tileAnimationFrameDuration;
+            def.frames.push_back(frame);
+            engine.SetAnimatedTileDefinitions(definitions);
+            SetDebugMessage("[TILE ANIM] Added frame");
+        }
+    }
+
+    ImGui::EndChild();
+    ImGui::Columns(1);
+    ImGui::End();
 }
 
 void UI::RenderPlayModeWindow(Engine& engine) {

@@ -58,6 +58,7 @@ json AssetDefinitionToJson(const AssetDefinition& def) {
         for (const auto& anim : def.animations) {
             json animJson;
             animJson["name"] = anim.name;
+            animJson["sourceAssetId"] = anim.sourceAssetId;
             animJson["row"] = anim.row;
             animJson["frameCount"] = anim.frameCount;
             animJson["frameRate"] = anim.frameRate;
@@ -94,6 +95,7 @@ AssetDefinition JsonToAssetDefinition(const json& j) {
         for (const auto& animJson : j["animations"]) {
             AnimationData anim;
             anim.name = animJson.value("name", "");
+            anim.sourceAssetId = animJson.value("sourceAssetId", "");
             anim.row = animJson.value("row", 0);
             anim.frameCount = animJson.value("frameCount", 4);
             anim.frameRate = animJson.value("frameRate", 8.0f);
@@ -152,6 +154,7 @@ bool SaveAssetDefinitions(const AssetManager& assetManager, const std::string& f
                 for (const auto& [name, anim] : asset->animationSet->animations) {
                     AnimationData animData;
                     animData.name = name;
+                    animData.sourceAssetId = anim.sourceAssetId.empty() ? asset->id : anim.sourceAssetId;
                     animData.loop = anim.loop;
                     animData.trigger = anim.trigger;
                     animData.direction = anim.direction;
@@ -220,9 +223,9 @@ bool LoadAssetDefinitions(AssetManager& assetManager, const std::string& filepat
             }
 
             if (def.isTileset) {
-                assetManager.LoadAsset(
+                assetManager.LoadAssetWithType(
                     def.id, def.name, def.category, def.path,
-                    def.tileWidth, def.tileHeight
+                    def.type, def.tileWidth, def.tileHeight
                 );
                 loadedCount++;
             } else if (def.hasSelectedFrame) {
@@ -234,8 +237,8 @@ bool LoadAssetDefinitions(AssetManager& assetManager, const std::string& filepat
                 );
                 loadedCount++;
             } else {
-                assetManager.LoadAsset(
-                    def.id, def.name, def.category, def.path
+                assetManager.LoadAssetWithType(
+                    def.id, def.name, def.category, def.path, def.type
                 );
                 loadedCount++;
             }
@@ -265,10 +268,36 @@ bool LoadAssetDefinitions(AssetManager& assetManager, const std::string& filepat
                         animData.frameRate,
                         animData.loop,
                         animData.trigger,
-                        animData.direction
+                        animData.direction,
+                        animData.sourceAssetId.empty() ? asset->id : animData.sourceAssetId
                         );
+
+                    Animation* loadedAnim = animSet->GetAnimation(animData.name);
+                    if (loadedAnim) {
+                        Asset* sourceAsset = assetManager.GetAsset(loadedAnim->sourceAssetId);
+                        if (sourceAsset && sourceAsset->loaded) {
+                            loadedAnim->sourceTexture = sourceAsset->texture;
+                            loadedAnim->hasSourceTexture = true;
+                        } else {
+                            loadedAnim->sourceTexture = asset->texture;
+                            loadedAnim->hasSourceTexture = true;
+                        }
+                    }
                 }
                 asset->hasAnimations = true;
+            }
+        }
+
+        // Second pass: resolve cross-asset animation textures when source asset appears later in file.
+        for (auto* asset : assetManager.GetAllAssets()) {
+            if (!asset || !asset->HasAnimations() || !asset->animationSet) continue;
+            for (auto& [name, anim] : asset->animationSet->animations) {
+                const std::string sourceId = anim.sourceAssetId.empty() ? asset->id : anim.sourceAssetId;
+                Asset* sourceAsset = assetManager.GetAsset(sourceId);
+                if (sourceAsset && sourceAsset->loaded) {
+                    anim.sourceTexture = sourceAsset->texture;
+                    anim.hasSourceTexture = true;
+                }
             }
         }
 

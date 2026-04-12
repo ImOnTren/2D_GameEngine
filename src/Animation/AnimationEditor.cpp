@@ -4,6 +4,7 @@
 #include "UI/UI.h"
 #include <filesystem>
 #include <algorithm>
+#include <cstring>
 #include "../Managers/LocalizationManager.h"
 
 #define TR(key) Localization::Get(key)
@@ -16,6 +17,7 @@ AnimationEditor::~AnimationEditor() {
 
 void AnimationEditor::Render(Engine& engine) {
     if (!windowOpen) return;
+    activeEngine = &engine;
 
     ImGui::SetNextWindowSize(ImVec2(900, 650), ImGuiCond_FirstUseEver);
 
@@ -43,7 +45,7 @@ void AnimationEditor::Render(Engine& engine) {
 
         RenderSpriteSheetPreview();
         ImGui::Separator();
-        RenderAnimationPreview();
+        RenderAnimationPreview(engine);
 
         ImGui::EndChild();
     }
@@ -133,8 +135,12 @@ void AnimationEditor::RenderFrameSettings() {
         RecalculateGridSize();
     }
 
-    // Show grid info
-    if (textureLoaded) {
+    Texture2D sourceTexture = ResolveTextureForAssetId(sourceAssetIdBuffer);
+    if (IsTextureUsable(sourceTexture)) {
+        const int cols = std::max(1, sourceTexture.width / frameWidth);
+        const int rows = std::max(1, sourceTexture.height / frameHeight);
+        ImGui::Text(TR("animation_editor.grid"), cols, rows);
+    } else if (textureLoaded) {
         ImGui::Text(TR("animation_editor.grid"), columnsInSheet, rowsInSheet);
     }
 }
@@ -143,29 +149,46 @@ void AnimationEditor::RenderSpriteSheetPreview() {
     ImGui::Text("%s", TR("animation_editor.sprite_sheet_preview"));
     ImGui::Spacing();
 
-    if (!textureLoaded) {
+    std::string previewLabel;
+    bool sourceMissing = false;
+    Texture2D previewTexture = ResolveTextureForAssetId(sourceAssetIdBuffer, &previewLabel, &sourceMissing);
+    if (!IsTextureUsable(previewTexture)) {
+        previewTexture = currentTexture;
+        previewLabel = currentTexturePath.empty() ? "<none>" : currentTexturePath;
+    }
+
+    if (!IsTextureUsable(previewTexture)) {
         ImGui::TextColored(ImVec4(1, 1, 0, 1), "%s", TR("animation_editor.no_sprite_sheet_loaded"));
         return;
     }
+    ImGui::Text("Sheet Source: %s", previewLabel.c_str());
+    if (sourceMissing) {
+        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "Source Asset ID not loaded, showing fallback sheet");
+    }
+
+    const int localColumns = std::max(1, previewTexture.width / frameWidth);
+    const int localRows = std::max(1, previewTexture.height / frameHeight);
+    columnsInSheet = localColumns;
+    rowsInSheet = localRows;
 
     // Calculate display size (fit to available space)
     ImVec2 availableSize = ImGui::GetContentRegionAvail();
     availableSize.y -= 200; // Reserve space for animation preview below
 
-    float scaleX = availableSize.x / currentTexture.width;
-    float scaleY = availableSize.y / currentTexture.height;
+    float scaleX = availableSize.x / previewTexture.width;
+    float scaleY = availableSize.y / previewTexture.height;
     float scale = std::min(scaleX, scaleY);
     scale = std::max(scale, 0.5f); // Minimum scale
     scale = std::min(scale, 4.0f); // Maximum scale
 
-    float displayWidth = currentTexture.width * scale;
-    float displayHeight = currentTexture.height * scale;
+    float displayWidth = previewTexture.width * scale;
+    float displayHeight = previewTexture.height * scale;
 
     // Get cursor position for drawing grid overlay
     ImVec2 cursorPos = ImGui::GetCursorScreenPos();
 
     // Draw the texture
-    ImGui::Image((ImTextureID)(intptr_t)currentTexture.id,
+    ImGui::Image((ImTextureID)(intptr_t)previewTexture.id,
                  ImVec2(displayWidth, displayHeight));
 
     // Draw grid overlay
@@ -175,7 +198,7 @@ void AnimationEditor::RenderSpriteSheetPreview() {
     float scaledFrameH = frameHeight * scale;
 
     // Vertical lines
-    for (int col = 0; col <= columnsInSheet; col++) {
+    for (int col = 0; col <= localColumns; col++) {
         float x = cursorPos.x + col * scaledFrameW;
         drawList->AddLine(
             ImVec2(x, cursorPos.y),
@@ -185,7 +208,7 @@ void AnimationEditor::RenderSpriteSheetPreview() {
     }
 
     // Horizontal lines
-    for (int row = 0; row <= rowsInSheet; row++) {
+    for (int row = 0; row <= localRows; row++) {
         float y = cursorPos.y + row * scaledFrameH;
         drawList->AddLine(
             ImVec2(cursorPos.x, y),
@@ -195,7 +218,7 @@ void AnimationEditor::RenderSpriteSheetPreview() {
     }
 
     // Highlight selected row
-    if (selectedRow >= 0 && selectedRow < rowsInSheet) {
+    if (selectedRow >= 0 && selectedRow < localRows) {
         float y = cursorPos.y + selectedRow * scaledFrameH;
         drawList->AddRectFilled(
             ImVec2(cursorPos.x, y),
@@ -205,43 +228,71 @@ void AnimationEditor::RenderSpriteSheetPreview() {
     }
 
     // Row labels
-    for (int row = 0; row < rowsInSheet; row++) {
+    for (int row = 0; row < localRows; row++) {
         float y = cursorPos.y + row * scaledFrameH + scaledFrameH / 2 - 6;
         char label[16];
         snprintf(label, sizeof(label), TR("animation_editor.row_label"), row);
         drawList->AddText(ImVec2(cursorPos.x + 4, y), IM_COL32(255, 255, 255, 255), label);
     }
 
-    ImVec2 uv_min = ImVec2(0.0f, 0.0f);
-    ImVec2 uv_max = ImVec2(1.0f, 1.0f);
-    ImGui::Image((ImTextureID)&currentTexture.id, ImVec2(currentTexture.width, currentTexture.height));
 }
 
 void AnimationEditor::RenderAnimationDefiner() {
     ImGui::Text("%s", TR("animation_editor.define_animation"));
     ImGui::Spacing();
 
-    if (!textureLoaded) {
-        ImGui::TextDisabled("%s", TR("animation_editor.load_sprite_sheet_first"));
-        return;
-    }
-
     // Animation base name (without direction suffix)
     ImGui::Text("%s", TR("animation_editor.base_name"));
     ImGui::SetNextItemWidth(-1);
     ImGui::InputText("##AnimName", nameBuffer, sizeof(nameBuffer));
 
+    ImGui::Text("Source Asset ID");
+    ImGui::SetNextItemWidth(-1);
+    bool sourceIdChanged = ImGui::InputText("##AnimSourceAssetID", sourceAssetIdBuffer, sizeof(sourceAssetIdBuffer));
+    if (targetAsset) {
+        if (ImGui::Button("Use Target Asset", ImVec2(-1, 0))) {
+            strncpy(sourceAssetIdBuffer, targetAsset->id.c_str(), sizeof(sourceAssetIdBuffer) - 1);
+            sourceAssetIdBuffer[sizeof(sourceAssetIdBuffer) - 1] = '\0';
+            sourceIdChanged = true;
+        }
+    }
+
+    std::string resolvedLabel;
+    bool sourceMissing = false;
+    Texture2D sourceTexture = ResolveTextureForAssetId(sourceAssetIdBuffer, &resolvedLabel, &sourceMissing);
+    const bool hasSourceTexture = IsTextureUsable(sourceTexture);
+    const int sourceColumns = hasSourceTexture ? std::max(1, sourceTexture.width / frameWidth) : 1;
+    const int sourceRows = hasSourceTexture ? std::max(1, sourceTexture.height / frameHeight) : 1;
+
+    if (selectedRow >= sourceRows) selectedRow = sourceRows - 1;
+    if (selectedFrameCount > sourceColumns) selectedFrameCount = sourceColumns;
+    if (selectedFrameCount < 1) selectedFrameCount = 1;
+
+    if (sourceIdChanged) {
+        columnsInSheet = sourceColumns;
+        rowsInSheet = sourceRows;
+    }
+
+    if (!hasSourceTexture) {
+        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "No loaded texture for this Source Asset ID");
+    } else {
+        ImGui::Text("Source Sheet: %s (%dx%d)", resolvedLabel.c_str(), sourceTexture.width, sourceTexture.height);
+    }
+    if (sourceMissing) {
+        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "Source asset missing, using fallback where possible");
+    }
+
     // Row selection
     ImGui::Text("%s", TR("animation_editor.row"));
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::SliderInt("##Row", &selectedRow, 0, std::max(0, rowsInSheet - 1))) {
+    if (ImGui::SliderInt("##Row", &selectedRow, 0, std::max(0, sourceRows - 1))) {
         // Row changed
     }
 
     // Frame count
     ImGui::Text("%s", TR("animation_editor.frame_count"));
     ImGui::SetNextItemWidth(-1);
-    ImGui::SliderInt("##FrameCount", &selectedFrameCount, 1, columnsInSheet);
+    ImGui::SliderInt("##FrameCount", &selectedFrameCount, 1, sourceColumns);
 
     // Frame rate
     ImGui::Text("%s", TR("animation_editor.frame_rate_fps"));
@@ -303,6 +354,7 @@ void AnimationEditor::RenderAnimationDefiner() {
         } else {
             AnimationDefinition def;
             def.name = fullName;
+            def.sourceAssetId = sourceAssetIdBuffer;
             def.row = selectedRow;
             def.frameCount = selectedFrameCount;
             def.frameRate = selectedFrameRate;
@@ -400,6 +452,9 @@ void AnimationEditor::RenderDefinedAnimationsList() {
             previewFrame = 0;
             previewTimer = 0.0f;
             previewFlipped = anim.isAutoFlipped;
+            const std::string selectedSourceId = anim.sourceAssetId.empty() && targetAsset ? targetAsset->id : anim.sourceAssetId;
+            strncpy(sourceAssetIdBuffer, selectedSourceId.c_str(), sizeof(sourceAssetIdBuffer) - 1);
+            sourceAssetIdBuffer[sizeof(sourceAssetIdBuffer) - 1] = '\0';
         }
 
         ImGui::SameLine(30);  // Move back to where the selectable started
@@ -437,21 +492,43 @@ void AnimationEditor::RenderDefinedAnimationsList() {
     }
 }
 
-void AnimationEditor::RenderAnimationPreview() {
+void AnimationEditor::RenderAnimationPreview(Engine& engine) {
     ImGui::Text("%s", TR("animation_editor.animation_preview"));
     ImGui::Spacing();
+    (void)engine;
 
-    if (!textureLoaded || previewAnimIndex < 0 ||
-        previewAnimIndex >= (int)definedAnimations.size()) {
+    if (previewAnimIndex < 0 || previewAnimIndex >= (int)definedAnimations.size()) {
         ImGui::TextDisabled("%s", TR("animation_editor.select_animation_to_preview"));
         return;
     }
 
     const auto& anim = definedAnimations[previewAnimIndex];
+    Texture2D previewTexture = currentTexture;
+    std::string previewSource = currentTexturePath.empty() ? "<current texture>" : currentTexturePath;
+    bool usingFallbackTexture = false;
+
+    const std::string sourceId = anim.sourceAssetId.empty() && targetAsset ? targetAsset->id : anim.sourceAssetId;
+    if (!sourceId.empty()) {
+        bool missing = false;
+        Texture2D resolved = ResolveTextureForAssetId(sourceId, &previewSource, &missing);
+        if (IsTextureUsable(resolved)) {
+            previewTexture = resolved;
+        }
+        usingFallbackTexture = missing;
+    }
+
+    if (previewTexture.id == 0 || previewTexture.width <= 0 || previewTexture.height <= 0) {
+        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "No preview texture resolved");
+        return;
+    }
 
     ImGui::Text(TR("animation_editor.playing"),
                 anim.name.c_str(), previewFrame + 1, anim.frameCount,
-                anim.isAutoFlipped ? TR("animation_editor.flipped_suffix") : "");
+                (anim.isAutoFlipped || anim.direction == AnimationDirection::LEFT) ? TR("animation_editor.flipped_suffix") : "");
+    ImGui::Text("Source: %s", previewSource.c_str());
+    if (usingFallbackTexture) {
+        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "Source Asset ID not loaded, showing fallback texture");
+    }
 
     // Calculate source rectangle for current frame
     float srcX = static_cast<float>(previewFrame * frameWidth);
@@ -466,20 +543,20 @@ void AnimationEditor::RenderAnimationPreview() {
     // UV coordinates for the frame
     ImVec2 uv0, uv1;
 
-    if (anim.isAutoFlipped) {
+    if (anim.isAutoFlipped || anim.direction == AnimationDirection::LEFT) {
         // Flip horizontally by swapping U coordinates
-        uv0 = ImVec2((srcX + srcW) / currentTexture.width,
-                     srcY / currentTexture.height);
-        uv1 = ImVec2(srcX / currentTexture.width,
-                     (srcY + srcH) / currentTexture.height);
+        uv0 = ImVec2((srcX + srcW) / previewTexture.width,
+                     srcY / previewTexture.height);
+        uv1 = ImVec2(srcX / previewTexture.width,
+                     (srcY + srcH) / previewTexture.height);
     } else {
-        uv0 = ImVec2(srcX / currentTexture.width,
-                     srcY / currentTexture.height);
-        uv1 = ImVec2((srcX + srcW) / currentTexture.width,
-                     (srcY + srcH) / currentTexture.height);
+        uv0 = ImVec2(srcX / previewTexture.width,
+                     srcY / previewTexture.height);
+        uv1 = ImVec2((srcX + srcW) / previewTexture.width,
+                     (srcY + srcH) / previewTexture.height);
     }
 
-    ImGui::Image((ImTextureID)(intptr_t)currentTexture.id, displaySize, uv0, uv1);
+    ImGui::Image((ImTextureID)(intptr_t)previewTexture.id, displaySize, uv0, uv1);
 }
 
 void AnimationEditor::RenderSaveSection(Engine& engine) {
@@ -497,7 +574,7 @@ void AnimationEditor::RenderSaveSection(Engine& engine) {
         ImGui::Separator();
 
         if (ImGui::Button(TR("animation_editor.save_to_asset"), ImVec2(-1, 0))) {
-            SaveAnimationsToAsset();
+            SaveAnimationsToAsset(engine);
         }
 
         if (ImGui::Button(TR("animation_editor.close_editor"), ImVec2(-1, 0))) {
@@ -616,20 +693,61 @@ void AnimationEditor::UpdatePreview(float deltaTime) {
 
 void AnimationEditor::RecalculateGridSize() {
     if (textureLoaded && frameWidth > 0 && frameHeight > 0) {
-        columnsInSheet = currentTexture.width / frameWidth;
-        rowsInSheet = currentTexture.height / frameHeight;
-
-        // Clamp selected values
-        if (selectedRow >= rowsInSheet) {
-            selectedRow = std::max(0, rowsInSheet - 1);
-        }
-        if (selectedFrameCount > columnsInSheet) {
-            selectedFrameCount = columnsInSheet;
-        }
+        RecalculateGridSizeFromTexture(currentTexture);
     } else {
         columnsInSheet = 0;
         rowsInSheet = 0;
     }
+}
+
+void AnimationEditor::RecalculateGridSizeFromTexture(const Texture2D& texture) {
+    if (!IsTextureUsable(texture) || frameWidth <= 0 || frameHeight <= 0) {
+        columnsInSheet = 0;
+        rowsInSheet = 0;
+        return;
+    }
+
+    columnsInSheet = std::max(1, texture.width / frameWidth);
+    rowsInSheet = std::max(1, texture.height / frameHeight);
+
+    if (selectedRow >= rowsInSheet) {
+        selectedRow = std::max(0, rowsInSheet - 1);
+    }
+    if (selectedFrameCount > columnsInSheet) {
+        selectedFrameCount = columnsInSheet;
+    }
+}
+
+Texture2D AnimationEditor::ResolveTextureForAssetId(const std::string& assetId, std::string* resolvedLabel, bool* missing) const {
+    if (missing) *missing = false;
+    if (resolvedLabel) *resolvedLabel = "";
+
+    if (activeEngine) {
+        std::string id = assetId;
+        if (id.empty() && targetAsset) {
+            id = targetAsset->id;
+        }
+        if (!id.empty()) {
+            Asset* sourceAsset = activeEngine->GetAssetManager().GetAsset(id);
+            if (sourceAsset && sourceAsset->loaded && sourceAsset->texture.id != 0) {
+                if (resolvedLabel) *resolvedLabel = sourceAsset->id;
+                return sourceAsset->texture;
+            }
+            if (missing) *missing = true;
+            if (resolvedLabel) *resolvedLabel = id + " (missing)";
+        }
+    }
+
+    if (textureLoaded && currentTexture.id != 0) {
+        if (resolvedLabel) *resolvedLabel = currentTexturePath.empty() ? "<loaded texture>" : currentTexturePath;
+        return currentTexture;
+    }
+
+    return Texture2D{0};
+}
+
+bool AnimationEditor::IsTextureUsable(const Texture2D& texture) {
+    return texture.id != 0 && texture.width > 0 && texture.height > 0;
 }
 
 std::string AnimationEditor::GetDirectionSuffix(AnimationDirection dir) const {
@@ -648,6 +766,12 @@ void AnimationEditor::OpenForAsset(Asset* asset) {
 
     targetAsset = asset;
     windowOpen = true;
+    if (targetAsset) {
+        strncpy(sourceAssetIdBuffer, targetAsset->id.c_str(), sizeof(sourceAssetIdBuffer) - 1);
+        sourceAssetIdBuffer[sizeof(sourceAssetIdBuffer) - 1] = '\0';
+    } else {
+        sourceAssetIdBuffer[0] = '\0';
+    }
 
     // Load the asset's texture
     if (!asset->path.empty()) {
@@ -672,6 +796,7 @@ void AnimationEditor::OpenForAsset(Asset* asset) {
         for (const auto& [name, anim] : animSet->animations) {
             AnimationDefinition def;
             def.name = name;
+            def.sourceAssetId = anim.sourceAssetId.empty() ? targetAsset->id : anim.sourceAssetId;
             def.loop = anim.loop;
             def.trigger = anim.trigger;
             def.direction = anim.direction;
@@ -696,7 +821,7 @@ void AnimationEditor::OpenForAsset(Asset* asset) {
                        " (" + std::to_string(definedAnimations.size()) + " animations loaded)");
 }
 
-void AnimationEditor::SaveAnimationsToAsset() {
+void AnimationEditor::SaveAnimationsToAsset(Engine& engine) {
     if (!targetAsset) {
         UI::SetDebugMessage("[ERROR] No target asset set!");
         return;
@@ -704,11 +829,6 @@ void AnimationEditor::SaveAnimationsToAsset() {
 
     if (definedAnimations.empty()) {
         UI::SetDebugMessage("[WARNING] No animations to save!");
-        return;
-    }
-
-    if (!textureLoaded) {
-        UI::SetDebugMessage("[ERROR] No texture loaded!");
         return;
     }
 
@@ -725,10 +845,13 @@ void AnimationEditor::SaveAnimationsToAsset() {
     // Set basic info
     animSet->id = targetAsset->id + "_animations";
     animSet->textureId = targetAsset->id;
-    animSet->texture = currentTexture;
-    animSet->textureLoaded = textureLoaded;
+    // Keep animation texture bound to the asset texture used at runtime.
+    animSet->texture = targetAsset->texture;
+    animSet->textureLoaded = targetAsset->loaded;
     animSet->frameWidth = frameWidth;
     animSet->frameHeight = frameHeight;
+
+    AssetManager& assetManager = engine.GetAssetManager();
 
     // Convert each AnimationDefinition to Animation
     for (const auto& def : definedAnimations) {
@@ -739,7 +862,24 @@ void AnimationEditor::SaveAnimationsToAsset() {
                 def.frameRate,
                 def.loop,
                 def.trigger,
-                def.direction);
+                def.direction,
+                def.sourceAssetId.empty() ? targetAsset->id : def.sourceAssetId);
+
+        Animation* savedAnim = animSet->GetAnimation(def.name);
+        if (!savedAnim) continue;
+
+        const std::string sourceId = savedAnim->sourceAssetId.empty() ? targetAsset->id : savedAnim->sourceAssetId;
+        Asset* sourceAsset = assetManager.GetAsset(sourceId);
+        if (sourceAsset && sourceAsset->loaded) {
+            savedAnim->sourceTexture = sourceAsset->texture;
+            savedAnim->hasSourceTexture = true;
+        } else {
+            savedAnim->sourceTexture = targetAsset->texture;
+            savedAnim->hasSourceTexture = true;
+            if (sourceId != targetAsset->id) {
+                UI::SetDebugMessage("[ANIMATION] Source asset not found for '" + def.name + "': " + sourceId + ". Using target texture.");
+            }
+        }
     }
 
     // Mark asset as having animations

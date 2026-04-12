@@ -59,9 +59,9 @@ private:
     static void RenderAssetGrid(Engine& engine, AssetManager& assetManager, const std::vector<Asset*>& allAssets);
     static void RenderAssetThumbnail(Asset* asset);
     static void RenderAssetDetails(Engine& engine, Asset* asset, AssetManager& assetManager);
-    static void RenderTilesetPreview(const Asset* asset);
     static void RenderTileSelectionWindow(Engine& engine, Asset* tileset);
     static void RenderTilesetGrid(Engine& engine, Asset* tileset);
+    static void RenderTileAnimationEditorWindow(Engine& engine);
     static void RenderTileSceneContext(Engine& engine, const Grid& grid);
     static void RenderLayerVisibilityControls(Engine& engine);
     [[nodiscard]] static bool IsMouseOverUI();
@@ -72,7 +72,6 @@ private:
     static AssetType typeFilter;
     static Asset* selectedAsset;
     static int thumbnailSize;
-    static bool showTilesetPreview;
     static char searchBuffer[256];
     static Entity* selectedSceneEntity;
 
@@ -89,5 +88,14 @@ private:
     static int bulkEditEndX;
     static int bulkEditEndY;
     static TutorialState tutorialState;
+    static bool showTileAnimationEditorWindow;
+    static int selectedTileAnimationDefIndex;
+    static char tileAnimationIdBuffer[128];
+    static bool tileAnimationLoop;
+    static char tileAnimationBaseAssetBuffer[128];
+    static int tileAnimationBaseIndex;
+    static char tileAnimationFrameAssetBuffer[128];
+    static int tileAnimationFrameIndex;
+    static float tileAnimationFrameDuration;
 
 };

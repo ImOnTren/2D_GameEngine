@@ -66,16 +66,16 @@ cd 2D_GameEngine
 2. Configure the project with CMake:
 
 ```bash
-cmake -S . -B build
+cmake -S . -B cmake-build-release
 ```
 
 3. Build the Release version:
 
 ```bash
-cmake --build build --config Release
+cmake --build cmake-build-release --config Release
 ```
 
-4. Run the `2D_GameEngine` executable in the `build/Release` folder.
+4. Run the `2D_GameEngine` executable in the `cmake-build-release/Release` folder.
 5. Use the **Asset Console** to import your first `.png`, set it as a Player, and click **Use Asset** to place them in the world.
 
 ### Windows ZIP Setup (No Manual CMake Install)
@@ -89,7 +89,10 @@ This script:
 * checks if CMake exists,
 * installs CMake via `winget` if missing,
 * configures and builds Release,
-* and leaves a runnable `build\Release\2D_GameEngine.exe`.
+* and leaves a runnable `cmake-build-release\Release\2D_GameEngine.exe`.
+
+### CLion Note
+If you work in CLion, your IDE build folders (for example `cmake-build-debug`) are independent from the README Release build folder (`cmake-build-release`).
 
 ---
 

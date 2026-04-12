@@ -57,7 +57,6 @@ void Localization::Initialize() {
     en["use_asset"] = "Use Asset";
     en["remove_asset"] = "Remove Asset";
     en["edit_animations"] = "Edit Animations";
-    en["show_tileset"] = "Show Tileset";
     en["placed_asset_settings"] = "Placed Asset Settings:";
     en["no_instances_placed"] = "No instances placed yet";
     en["placed_instances"] = "Placed instances: %d";
@@ -357,7 +356,6 @@ void Localization::Initialize() {
     sk["use_asset"] = "Pouzit asset";
     sk["remove_asset"] = "Odstranit asset";
     sk["edit_animations"] = "Upravit animacie";
-    sk["show_tileset"] = "Zobrazit tileset";
     sk["placed_asset_settings"] = "Nastavenia umiestneneho assetu:";
     sk["no_instances_placed"] = "Zatial nie su umiestnene ziadne instancie";
     sk["placed_instances"] = "Umiestnene instancie: %d";

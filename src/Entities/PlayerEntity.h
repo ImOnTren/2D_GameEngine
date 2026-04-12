@@ -2,6 +2,7 @@
 #include "Entity.h"
 #include "Grid.h"
 #include "AssetManagement/AssetManager.h"
+#include "Animation/Animator.h"
 
 class PlayerEntity : public Entity {
 public:
@@ -37,6 +38,11 @@ public:
 
 private:
     void RecalculateCollisionBox();
+    void EnsureAnimatorInitialized();
+    const Animation* FindDirectionalAnimation(const std::string& baseName, AnimationDirection direction) const;
+    bool PlayDirectionalTriggered(const std::string& baseName, AnimationTrigger trigger, AnimationDirection direction, bool forceRestart = false);
+    static AnimationDirection ResolveDirectionFromVelocity(const Vector2& vel, AnimationDirection fallback);
+    static std::string BuildDirectionalName(const std::string& baseName, AnimationDirection direction);
 
     Grid& grid;
     int cellX = 0;
@@ -52,6 +58,8 @@ private:
 
     Texture2D playerTexture{};
     bool textureLoaded = false;
+    Animator animator;
+    AnimationDirection lastFacingDirection = AnimationDirection::DOWN;
 
     float scale = 1.0f;
     Vector2 baseSize{16.0f, 16.0f};

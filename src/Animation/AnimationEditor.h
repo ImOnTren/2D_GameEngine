@@ -27,6 +27,8 @@ public:
     void ClearTargetAsset() { targetAsset = nullptr; }
 
 private:
+    Engine* activeEngine = nullptr;
+
     bool windowOpen = false;
 
     // Current sprite sheet being edited
@@ -47,6 +49,7 @@ private:
     // Animation definition in progress
     struct AnimationDefinition {
         std::string name;
+        std::string sourceAssetId;
         int row = 0;
         int frameCount = 4;
         float frameRate = 8.0f;
@@ -67,6 +70,7 @@ private:
     int selectedTrigger = 0;  // Index into trigger options
     int selectedDirection = 0; // Index into direction options
     bool autoCreateLeft = true; // Auto-create LEFT when adding RIGHT
+    char sourceAssetIdBuffer[128] = "";
 
     // Preview state
     int previewAnimIndex = -1;
@@ -91,7 +95,7 @@ private:
     void RenderSpriteSheetPreview();
     void RenderAnimationDefiner();
     void RenderDefinedAnimationsList();
-    void RenderAnimationPreview();
+    void RenderAnimationPreview(Engine& engine);
     void RenderSaveSection(Engine& engine);
 
     void LoadTexture(const std::string& path);
@@ -99,7 +103,10 @@ private:
     void ScanForPngFiles(const std::string& directory);
     void UpdatePreview(float deltaTime);
     void RecalculateGridSize();
-    void SaveAnimationsToAsset();
+    void RecalculateGridSizeFromTexture(const Texture2D& texture);
+    void SaveAnimationsToAsset(Engine& engine);
+    Texture2D ResolveTextureForAssetId(const std::string& assetId, std::string* resolvedLabel = nullptr, bool* missing = nullptr) const;
+    static bool IsTextureUsable(const Texture2D& texture);
 
     // Helper to get direction suffix
     std::string GetDirectionSuffix(AnimationDirection dir) const;

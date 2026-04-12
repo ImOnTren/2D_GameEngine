@@ -35,6 +35,9 @@ struct Animation {
     bool loop = true;                   // Whether to loop or play once
     AnimationTrigger trigger = AnimationTrigger::LOOP;
     AnimationDirection direction = AnimationDirection::NONE;
+    std::string sourceAssetId;          // Which asset texture this animation should use
+    Texture2D sourceTexture = {0};      // Resolved texture (can differ from AnimationSet::texture)
+    bool hasSourceTexture = false;
 
     float GetTotalDuration() const {
         float total = 0.0f;
@@ -77,12 +80,14 @@ struct AnimationSet {
     void AddAnimationFromRow(const std::string& name, int row, int frameCount,
                              float frameRate, bool looping = true,
                              AnimationTrigger trigger = AnimationTrigger::LOOP,
-                             AnimationDirection direction = AnimationDirection::NONE) {
+                             AnimationDirection direction = AnimationDirection::NONE,
+                             const std::string& sourceAssetId = "") {
         Animation anim;
         anim.name = name;
         anim.loop = looping;
         anim.trigger = trigger;
         anim.direction = direction;
+        anim.sourceAssetId = sourceAssetId;
 
         float frameDuration = 1.0f / frameRate;
 

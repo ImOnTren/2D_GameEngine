@@ -77,6 +77,9 @@ public:
     void LoadAsset(const std::string& id, const std::string& name, const std::string& category, const std::string& path,
                    int spriteWidth = 0, int spriteHeight = 0,
                    const std::unordered_map<std::string, SpriteAnimation>& animation = {});
+    void LoadAssetWithType(const std::string& id, const std::string& name, const std::string& category, const std::string& path,
+                   AssetType type, int spriteWidth = 0, int spriteHeight = 0,
+                   const std::unordered_map<std::string, SpriteAnimation>& animation = {});
     void LoadTextureForAsset(Asset* asset);
     void UnloadAllAssets();
 

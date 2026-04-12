@@ -1,4 +1,6 @@
 #include "Engine.h"
+#include <algorithm>
+#include <cmath>
 
 using namespace std;
 
@@ -15,6 +17,7 @@ Engine::Engine() : playerManager(grid), enemyManager(grid) {
     lastPlacedTileX = -999;
     lastPlacedTileY = -999;
     isPlacingTiles = false;
+    RebuildAnimatedTileLookup();
 }
 
 Engine::~Engine(){
@@ -42,15 +45,12 @@ void Engine::LoadAssets()
 {
     assetManager.LoadAsset("grass_tileset", "Grass_tileset", "Tileset", "assets/Farm/Tileset/Modular/Tileset Grass Spring.png", 16, 16);
     assetManager.LoadAsset("winter_tileset", "Winter_tileset", "Tileset", "assets/Farm/Tileset/Modular/Tileset Grass Winter.png", 16, 16);
-    assetManager.LoadAsset("water_tileset", "Water_tileset", "Tileset", "assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
     assetManager.LoadAsset("caves_tileset", "Caves_tileset", "Tileset", "assets/Farm/Tileset/Modular/Caves.png", 16, 16);
     assetManager.LoadAsset("tilled_soil_tileset", "Tilled_soil_tileset", "Tileset", "assets/Farm/Tileset/Modular/Tilled Soil and wet soil.png", 16, 16);
     assetManager.LoadAsset("all_props_tileset", "all_props_tileset", "Tileset", "assets/Farm/Tileset/Modular/ALL props seasons.png", 16, 16);
-    assetManager.LoadAsset("water_ground_tileset", "water_ground_tileset", "Tileset", "assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
     assetManager.LoadAsset("ground_road_tileset", "road_tileset", "Tileset", "assets/Exterior/Road.png", 16, 16);
     assetManager.LoadAsset("fence_wood_tileset", "Fence_wood_tileset", "Tileset", "assets/Exterior/Fence and Bridge/Fence Wood.png", 16, 16);
     assetManager.LoadAsset("fence_stone_tileset", "Fence_stone_tileset", "Tileset", "assets/Exterior/Fence and Bridge/Fence Stone.png", 16, 16);
-    assetManager.LoadAsset("water_ground_tileset", "water_ground_tileset", "Tileset", "assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
     assetManager.LoadAsset("broken_house8", "Broken_House_8_texture", "Static Texture", "assets/Exterior/Houses/8.png");
     assetManager.LoadAsset("broken_house_resized8", "Broken_House_8_resized_texture", "Static Texture", "assets/Exterior/Houses/8 - resized.png");
     assetManager.LoadAsset("broken_house7", "Broken_House_7_texture", "Static Texture", "assets/Exterior/Houses/7.png");
@@ -65,6 +65,94 @@ void Engine::LoadAssets()
     assetManager.LoadAsset("ice_cream_car", "ice_cream_car_texture", "Static Texture", "assets/Exterior/ice cream car.png");
     assetManager.LoadAsset("birch_tree", "birch_tree_texture", "Static Texture", "assets/Farm/Tree/Common/No Shadow/Birch Tree single.png");
     assetManager.LoadAsset("mahogany_tree", "mahogany_tree_texture", "Static Texture", "assets/Farm/Tree/Common/No Shadow/Mahogany Tree single.png");
+}
+
+std::string Engine::BuildAnimatedTileKey(const std::string& assetID, const int tileIndex) const {
+    return assetID + "#" + std::to_string(tileIndex);
+}
+
+void Engine::RebuildAnimatedTileLookup() {
+    animatedTileLookup.clear();
+    for (size_t defIndex = 0; defIndex < animatedTileDefinitions.size(); ++defIndex) {
+        const auto& def = animatedTileDefinitions[defIndex];
+        for (const auto& base : def.baseTiles) {
+            animatedTileLookup[BuildAnimatedTileKey(base.assetID, base.tileIndex)] = defIndex;
+        }
+    }
+}
+
+void Engine::SetAnimatedTileDefinitions(const std::vector<AnimatedTileDefinition>& definitions) {
+    animatedTileDefinitions = definitions;
+    RebuildAnimatedTileLookup();
+}
+
+void Engine::ClearAnimatedTileDefinitions() {
+    animatedTileDefinitions.clear();
+    animatedTileLookup.clear();
+}
+
+void Engine::SetAnimatedTileClock(const float seconds) {
+    animatedTileClockSeconds = std::max(0.0f, seconds);
+}
+
+float Engine::GetAnimatedTileClock() const {
+    return animatedTileClockSeconds;
+}
+
+bool Engine::ResolveAnimatedTileFrame(const TileData& tile, const Asset*& outAsset, Rectangle& outSourceRect) {
+    outAsset = assetManager.GetAsset(tile.tileID);
+    if (!outAsset || !outAsset->loaded) {
+        return false;
+    }
+
+    const auto lookupIt = animatedTileLookup.find(BuildAnimatedTileKey(tile.tileID, tile.tileIndex));
+    if (lookupIt == animatedTileLookup.end()) {
+        outSourceRect = assetManager.GetSpecificSprite(outAsset, tile.tileIndex);
+        return true;
+    }
+
+    const auto& def = animatedTileDefinitions[lookupIt->second];
+    if (def.frames.empty()) {
+        outSourceRect = assetManager.GetSpecificSprite(outAsset, tile.tileIndex);
+        return true;
+    }
+
+    float totalDuration = 0.0f;
+    for (const auto& frame : def.frames) {
+        totalDuration += std::max(0.001f, frame.duration);
+    }
+    if (totalDuration <= 0.0f) {
+        outSourceRect = assetManager.GetSpecificSprite(outAsset, tile.tileIndex);
+        return true;
+    }
+
+    float localTime = animatedTileClockSeconds;
+    if (def.loop) {
+        localTime = std::fmod(localTime, totalDuration);
+        if (localTime < 0.0f) localTime += totalDuration;
+    } else {
+        localTime = std::min(localTime, totalDuration - 0.001f);
+    }
+
+    const AnimatedTileFrame* selectedFrame = &def.frames.back();
+    float accumulator = 0.0f;
+    for (const auto& frame : def.frames) {
+        accumulator += std::max(0.001f, frame.duration);
+        if (localTime < accumulator) {
+            selectedFrame = &frame;
+            break;
+        }
+    }
+
+    const Asset* frameAsset = assetManager.GetAsset(selectedFrame->assetID);
+    if (!frameAsset || !frameAsset->loaded) {
+        outSourceRect = assetManager.GetSpecificSprite(outAsset, tile.tileIndex);
+        return true;
+    }
+
+    outAsset = frameAsset;
+    outSourceRect = assetManager.GetSpecificSprite(frameAsset, selectedFrame->tileIndex);
+    return true;
 }
 
 
@@ -338,10 +426,11 @@ void Engine::DrawEditModeTiles()
                 continue;
             }
 
-            const Asset* asset = assetManager.GetAsset(tile.tileID);
-            if (!asset || !asset->loaded) continue;
-
-            const Rectangle sourceRect = assetManager.GetSpecificSprite(asset, tile.tileIndex);
+            const Asset* asset = nullptr;
+            Rectangle sourceRect{0, 0, 0, 0};
+            if (!ResolveAnimatedTileFrame(tile, asset, sourceRect) || !asset || !asset->loaded) {
+                continue;
+            }
             const Rectangle destRect = {
                 static_cast<float>(x * tileSize),
                 static_cast<float>(y * tileSize),
@@ -374,10 +463,11 @@ void Engine::DrawPlayModeTiles()
                 continue;
             }
 
-            Asset* asset = assetManager.GetAsset(tile.tileID);
-            if (!asset || !asset->loaded) continue;
-
-            const Rectangle sourceRect = assetManager.GetSpecificSprite(asset, tile.tileIndex);
+            const Asset* asset = nullptr;
+            Rectangle sourceRect{0, 0, 0, 0};
+            if (!ResolveAnimatedTileFrame(tile, asset, sourceRect) || !asset || !asset->loaded) {
+                continue;
+            }
             const Rectangle destRect = {
                 static_cast<float>(x * tileSize),
                 static_cast<float>(y * tileSize),
@@ -1213,6 +1303,8 @@ void Engine::ResolveCollisionInPlayMode() {
 
 void Engine::Run() {
     while (!WindowShouldClose()) {
+        animatedTileClockSeconds += GetFrameTime();
+
         if (currentMode == Mode::EDIT) {
             HandleEditModeInput();
         }
@@ -1298,6 +1390,9 @@ void Engine::Run() {
                     static_cast<float>(testAnimationSet.frameWidth),
                     static_cast<float>(testAnimationSet.frameHeight)
                 };
+                if (testAnimator.IsFlippedHorizontal()) {
+                    destRect.width = -destRect.width;
+                }
                 DrawTexturePro(testAnimator.GetTexture(), srcRect, destRect, {0, 0}, 0.0f, WHITE);
             }
 

@@ -34,13 +34,23 @@ void Animator::PlayDirectional(const std::string& baseName, AnimationDirection d
     if (!animationSet) {
         return;
     }
-    
-    // Determine if we need to flip
-    bool needsFlip = (direction == AnimationDirection::LEFT);
-    AnimationDirection actualDirection = needsFlip ? AnimationDirection::RIGHT : direction;
-    
-    // Build the animation name
-    std::string animName = BuildAnimationName(baseName, actualDirection);
+
+    bool needsFlip = false;
+    std::string animName;
+
+    if (direction == AnimationDirection::LEFT) {
+        const std::string leftName = BuildAnimationName(baseName, AnimationDirection::LEFT);
+        const Animation* leftAnim = animationSet->GetAnimation(leftName);
+        if (leftAnim && !leftAnim->frames.empty()) {
+            animName = leftName;
+            needsFlip = false;
+        } else {
+            animName = BuildAnimationName(baseName, AnimationDirection::RIGHT);
+            needsFlip = true;
+        }
+    } else {
+        animName = BuildAnimationName(baseName, direction);
+    }
     
     // Check if already playing this animation with same flip state
     if (!forceRestart && currentAnimationName == animName && 
@@ -68,7 +78,7 @@ std::string Animator::BuildAnimationName(const std::string& baseName, AnimationD
         case AnimationDirection::DOWN:  return baseName + "_down";
         case AnimationDirection::UP:    return baseName + "_up";
         case AnimationDirection::RIGHT: return baseName + "_right";
-        case AnimationDirection::LEFT:  return baseName + "_right";  // Use right for left (will flip)
+        case AnimationDirection::LEFT:  return baseName + "_left";
         case AnimationDirection::NONE:  return baseName;
     }
     return baseName;
@@ -91,10 +101,13 @@ void Animator::Update(float deltaTime) {
     }
     
     elapsedTime += deltaTime * playbackSpeed;
-    
-    const AnimationFrame& currentFrame = currentAnimation->frames[currentFrameIndex];
-    
-    while (elapsedTime >= currentFrame.duration) {
+
+    while (true) {
+        const AnimationFrame& currentFrame = currentAnimation->frames[currentFrameIndex];
+        if (elapsedTime < currentFrame.duration) {
+            break;
+        }
+
         elapsedTime -= currentFrame.duration;
         currentFrameIndex++;
         
@@ -122,17 +135,13 @@ Rectangle Animator::GetCurrentFrameRect() const {
         frameIdx = static_cast<int>(currentAnimation->frames.size()) - 1;
     }
     
-    Rectangle rect = currentAnimation->frames[frameIdx].sourceRect;
-    
-    // If flipped, make width negative (raylib will flip the texture)
-    if (flipHorizontal) {
-        rect.width = -rect.width;
-    }
-    
-    return rect;
+    return currentAnimation->frames[frameIdx].sourceRect;
 }
 
 Texture2D Animator::GetTexture() const {
+    if (currentAnimation && currentAnimation->hasSourceTexture && currentAnimation->sourceTexture.id != 0) {
+        return currentAnimation->sourceTexture;
+    }
     if (animationSet && animationSet->textureLoaded) {
         return animationSet->texture;
     }

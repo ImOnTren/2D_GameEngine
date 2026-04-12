@@ -399,7 +399,7 @@ void AssetImporter::CreateAsset(Engine& engine) {
     AssetType type = assetTypes[selectedAssetType].type;
 
     if (type == AssetType::TILESET) {
-        assetManager.LoadAsset(assetId, assetName, category, path,
+        assetManager.LoadAssetWithType(assetId, assetName, category, path, type,
                               tilesetTileWidth, tilesetTileHeight);
         UI::SetDebugMessage("[ASSET IMPORTER] Created tileset: " + assetName);
 
@@ -418,7 +418,7 @@ void AssetImporter::CreateAsset(Engine& engine) {
                               std::to_string(selectedFrameX) + ", " +
                               std::to_string(selectedFrameY) + "): " + assetName);
         } else {
-            assetManager.LoadAsset(assetId, assetName, category, path);
+            assetManager.LoadAssetWithType(assetId, assetName, category, path, type);
             UI::SetDebugMessage("[ASSET IMPORTER] Created animated asset (full texture): " + assetName);
         }
 
@@ -432,12 +432,12 @@ void AssetImporter::CreateAsset(Engine& engine) {
             );
             UI::SetDebugMessage("[ASSET IMPORTER] Created static sprite with selected frame: " + assetName);
         } else {
-            assetManager.LoadAsset(assetId, assetName, category, path);
+            assetManager.LoadAssetWithType(assetId, assetName, category, path, type);
             UI::SetDebugMessage("[ASSET IMPORTER] Created static sprite (full texture): " + assetName);
         }
 
     } else {
-        assetManager.LoadAsset(assetId, assetName, category, path);
+        assetManager.LoadAssetWithType(assetId, assetName, category, path, type);
         UI::SetDebugMessage("[ASSET IMPORTER] Created texture asset: " + assetName);
     }
 
@@ -450,6 +450,7 @@ void AssetImporter::ResetForm() {
     assetIdBuffer[0] = '\0';
     strcpy(assetCategoryBuffer, "Uncategorized");
     selectedAssetType = 0;
+    isTileset = false;
     selectedFrameX = 0;
     selectedFrameY = 0;
     frameSelected = false;

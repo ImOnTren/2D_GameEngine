@@ -228,12 +228,19 @@ void AssetManager::LoadAsset(const std::string& id, const std::string& name,
                              const std::string& category, const std::string& path,
                              int spriteWidth, int spriteHeight,
                              const std::unordered_map<std::string, SpriteAnimation>& animation){
+    const AssetType detectedType = DetectAssetType(name, category);
+    LoadAssetWithType(id, name, category, path, detectedType, spriteWidth, spriteHeight, animation);
+}
+
+void AssetManager::LoadAssetWithType(const std::string& id, const std::string& name,
+                             const std::string& category, const std::string& path,
+                             const AssetType type, int spriteWidth, int spriteHeight,
+                             const std::unordered_map<std::string, SpriteAnimation>& animation){
     if (assets.find(id) != assets.end())
     {
         UI::SetDebugMessage("[ASSET] Asset with id " + id + " already exists");
         return;
     }
-    AssetType type = DetectAssetType(name, category);
 
     auto asset = std::make_unique<Asset>(id, name, category, path, type);
 
@@ -259,19 +266,19 @@ AssetType AssetManager::DetectAssetType(const std::string& name, const std::stri
     std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
     std::transform(categoryLower.begin(), categoryLower.end(), categoryLower.begin(), ::tolower);
 
-    if (name.find("texture") != std::string::npos)
+    if (nameLower.find("texture") != std::string::npos)
     {
         return AssetType::INDIVIDUAL_TEXTURE;
     }
-    if (name.find("sprite") != std::string::npos)
+    if (nameLower.find("sprite") != std::string::npos)
     {
         return AssetType::STATIC_SPRITESHEET;
     }
-    if (name.find("animation") != std::string::npos)
+    if (nameLower.find("animation") != std::string::npos)
     {
         return AssetType::ANIMATED_SPRITESHEET;
     }
-    if (name.find("tileset") != std::string::npos || categoryLower == "tileset")
+    if (nameLower.find("tileset") != std::string::npos || categoryLower == "tileset")
     {
         return AssetType::TILESET;
     }
