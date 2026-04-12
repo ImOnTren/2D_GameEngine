@@ -40,31 +40,31 @@ void Engine::Init() {
 
 void Engine::LoadAssets()
 {
-    assetManager.LoadAsset("grass_tileset", "Grass_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Tileset Grass Spring.png", 16, 16);
-    assetManager.LoadAsset("winter_tileset", "Winter_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Tileset Grass Winter.png", 16, 16);
-    assetManager.LoadAsset("water_tileset", "Water_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
-    assetManager.LoadAsset("caves_tileset", "Caves_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Caves.png", 16, 16);
-    assetManager.LoadAsset("tilled_soil_tileset", "Tilled_soil_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Tilled Soil and wet soil.png", 16, 16);
-    assetManager.LoadAsset("all_props_tileset", "all_props_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/ALL props seasons.png", 16, 16);
-    assetManager.LoadAsset("water_ground_tileset", "water_ground_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
-    assetManager.LoadAsset("ground_road_tileset", "road_tileset", "Tileset", "../src/assets/Exterior/Road.png", 16, 16);
-    assetManager.LoadAsset("fence_wood_tileset", "Fence_wood_tileset", "Tileset", "../src/assets/Exterior/Fence and Bridge/Fence Wood.png", 16, 16);
-    assetManager.LoadAsset("fence_stone_tileset", "Fence_stone_tileset", "Tileset", "../src/assets/Exterior/Fence and Bridge/Fence Stone.png", 16, 16);
-    assetManager.LoadAsset("water_ground_tileset", "water_ground_tileset", "Tileset", "../src/assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
-    assetManager.LoadAsset("broken_house8", "Broken_House_8_texture", "Static Texture", "../src/assets/Exterior/Houses/8.png");
-    assetManager.LoadAsset("broken_house_resized8", "Broken_House_8_resized_texture", "Static Texture", "../src/assets/Exterior/Houses/8 - resized.png");
-    assetManager.LoadAsset("broken_house7", "Broken_House_7_texture", "Static Texture", "../src/assets/Exterior/Houses/7.png");
-    assetManager.LoadAsset("broken_house6", "Broken_House_6_texture", "Static Texture", "../src/assets/Exterior/Houses/6.png");
-    assetManager.LoadAsset("broken_house5", "Broken_House_5_texture", "Static Texture", "../src/assets/Exterior/Houses/5.png");
-    assetManager.LoadAsset("broken_house4", "Broken_House_4_texture", "Static Texture", "../src/assets/Exterior/Houses/4.png");
-    assetManager.LoadAsset("broken_house3", "Broken_House_3_texture", "Static Texture", "../src/assets/Exterior/Houses/3.png");
-    assetManager.LoadAsset("broken_house2", "Broken_House_2_texture", "Static Texture", "../src/assets/Exterior/Houses/2.png");
-    assetManager.LoadAsset("broken_house1", "Broken_House_1_texture", "Static Texture", "../src/assets/Exterior/Houses/1.png");
-    assetManager.LoadAsset("water_house", "water_house_texture", "Static Texture", "../src/assets/Exterior/Houses/NPCS Houses/1.png");
-    assetManager.LoadAsset("outside_table", "outside_table_texture", "Static Texture", "../src/assets/Exterior/Table.png");
-    assetManager.LoadAsset("ice_cream_car", "ice_cream_car_texture", "Static Texture", "../src/assets/Exterior/ice cream car.png");
-    assetManager.LoadAsset("birch_tree", "birch_tree_texture", "Static Texture", "../src/assets/Farm/Tree/Common/No Shadow/Birch Tree single.png");
-    assetManager.LoadAsset("mahogany_tree", "mahogany_tree_texture", "Static Texture", "../src/assets/Farm/Tree/Common/No Shadow/Mahogany Tree single.png");
+    assetManager.LoadAsset("grass_tileset", "Grass_tileset", "Tileset", "assets/Farm/Tileset/Modular/Tileset Grass Spring.png", 16, 16);
+    assetManager.LoadAsset("winter_tileset", "Winter_tileset", "Tileset", "assets/Farm/Tileset/Modular/Tileset Grass Winter.png", 16, 16);
+    assetManager.LoadAsset("water_tileset", "Water_tileset", "Tileset", "assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
+    assetManager.LoadAsset("caves_tileset", "Caves_tileset", "Tileset", "assets/Farm/Tileset/Modular/Caves.png", 16, 16);
+    assetManager.LoadAsset("tilled_soil_tileset", "Tilled_soil_tileset", "Tileset", "assets/Farm/Tileset/Modular/Tilled Soil and wet soil.png", 16, 16);
+    assetManager.LoadAsset("all_props_tileset", "all_props_tileset", "Tileset", "assets/Farm/Tileset/Modular/ALL props seasons.png", 16, 16);
+    assetManager.LoadAsset("water_ground_tileset", "water_ground_tileset", "Tileset", "assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
+    assetManager.LoadAsset("ground_road_tileset", "road_tileset", "Tileset", "assets/Exterior/Road.png", 16, 16);
+    assetManager.LoadAsset("fence_wood_tileset", "Fence_wood_tileset", "Tileset", "assets/Exterior/Fence and Bridge/Fence Wood.png", 16, 16);
+    assetManager.LoadAsset("fence_stone_tileset", "Fence_stone_tileset", "Tileset", "assets/Exterior/Fence and Bridge/Fence Stone.png", 16, 16);
+    assetManager.LoadAsset("water_ground_tileset", "water_ground_tileset", "Tileset", "assets/Farm/Tileset/Modular/Water Ground animations tiles.png", 16, 16);
+    assetManager.LoadAsset("broken_house8", "Broken_House_8_texture", "Static Texture", "assets/Exterior/Houses/8.png");
+    assetManager.LoadAsset("broken_house_resized8", "Broken_House_8_resized_texture", "Static Texture", "assets/Exterior/Houses/8 - resized.png");
+    assetManager.LoadAsset("broken_house7", "Broken_House_7_texture", "Static Texture", "assets/Exterior/Houses/7.png");
+    assetManager.LoadAsset("broken_house6", "Broken_House_6_texture", "Static Texture", "assets/Exterior/Houses/6.png");
+    assetManager.LoadAsset("broken_house5", "Broken_House_5_texture", "Static Texture", "assets/Exterior/Houses/5.png");
+    assetManager.LoadAsset("broken_house4", "Broken_House_4_texture", "Static Texture", "assets/Exterior/Houses/4.png");
+    assetManager.LoadAsset("broken_house3", "Broken_House_3_texture", "Static Texture", "assets/Exterior/Houses/3.png");
+    assetManager.LoadAsset("broken_house2", "Broken_House_2_texture", "Static Texture", "assets/Exterior/Houses/2.png");
+    assetManager.LoadAsset("broken_house1", "Broken_House_1_texture", "Static Texture", "assets/Exterior/Houses/1.png");
+    assetManager.LoadAsset("water_house", "water_house_texture", "Static Texture", "assets/Exterior/Houses/NPCS Houses/1.png");
+    assetManager.LoadAsset("outside_table", "outside_table_texture", "Static Texture", "assets/Exterior/Table.png");
+    assetManager.LoadAsset("ice_cream_car", "ice_cream_car_texture", "Static Texture", "assets/Exterior/ice cream car.png");
+    assetManager.LoadAsset("birch_tree", "birch_tree_texture", "Static Texture", "assets/Farm/Tree/Common/No Shadow/Birch Tree single.png");
+    assetManager.LoadAsset("mahogany_tree", "mahogany_tree_texture", "Static Texture", "assets/Farm/Tree/Common/No Shadow/Mahogany Tree single.png");
 }
 
 

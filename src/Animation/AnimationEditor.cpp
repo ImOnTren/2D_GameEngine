@@ -19,7 +19,7 @@ void AnimationEditor::Render(Engine& engine) {
 
     ImGui::SetNextWindowSize(ImVec2(900, 650), ImGuiCond_FirstUseEver);
 
-    if (ImGui::Begin("Animation Editor", &windowOpen)) {
+    if (ImGui::Begin(TR("animation_editor.window_title"), &windowOpen)) {
 
         // Left panel - file selection and settings
         ImGui::BeginChild("LeftPanel", ImVec2(320, 0), true);
@@ -54,21 +54,21 @@ void AnimationEditor::Render(Engine& engine) {
 }
 
 void AnimationEditor::RenderFileSelector() {
-    ImGui::Text("Sprite Sheet Selection");
+    ImGui::Text("%s", TR("animation_editor.sprite_sheet_selection"));
     ImGui::Spacing();
 
     // Search path input
-    ImGui::Text("Search Path:");
+    ImGui::Text("%s", TR("animation_editor.search_path"));
     if (ImGui::InputText("##SearchPath", searchPathBuffer, sizeof(searchPathBuffer))) {
         needsRescan = true;
     }
     ImGui::SameLine();
-    if (ImGui::Button("Scan")) {
+    if (ImGui::Button(TR("animation_editor.scan"))) {
         ScanForPngFiles(searchPathBuffer);
     }
 
     // File list
-    ImGui::Text("PNG Files Found: %d", (int)foundPngFiles.size());
+    ImGui::Text(TR("animation_editor.found_png_files"), (int)foundPngFiles.size());
 
     ImGui::BeginChild("FileList", ImVec2(0, 150), true);
     for (int i = 0; i < (int)foundPngFiles.size(); i++) {
@@ -90,34 +90,36 @@ void AnimationEditor::RenderFileSelector() {
 
     // Show currently loaded file
     if (textureLoaded) {
-        ImGui::TextWrapped("Loaded: %s", currentTexturePath.c_str());
-        ImGui::Text("Size: %dx%d", currentTexture.width, currentTexture.height);
+        ImGui::TextWrapped(TR("animation_editor.loaded_path"), currentTexturePath.c_str());
+        ImGui::Text(TR("animation_editor.size"), currentTexture.width, currentTexture.height);
     }
 }
 
 void AnimationEditor::RenderFrameSettings() {
-    ImGui::Text("Frame Settings");
+    ImGui::Text("%s", TR("animation_editor.frame_settings"));
     ImGui::Spacing();
 
     bool changed = false;
 
-    ImGui::Text("Frame Size:");
+    ImGui::Text("%s", TR("animation_editor.frame_size"));
     ImGui::SetNextItemWidth(100);
-    if (ImGui::InputInt("Width##Frame", &frameWidth, 8, 16)) {
+    std::string frameWidthLabel = std::string(TR("animation_editor.width")) + "##Frame";
+    if (ImGui::InputInt(frameWidthLabel.c_str(), &frameWidth, 8, 16)) {
         if (frameWidth < 8) frameWidth = 8;
         if (frameWidth > 256) frameWidth = 256;
         changed = true;
     }
     ImGui::SameLine();
     ImGui::SetNextItemWidth(100);
-    if (ImGui::InputInt("Height##Frame", &frameHeight, 8, 16)) {
+    std::string frameHeightLabel = std::string(TR("animation_editor.height")) + "##Frame";
+    if (ImGui::InputInt(frameHeightLabel.c_str(), &frameHeight, 8, 16)) {
         if (frameHeight < 8) frameHeight = 8;
         if (frameHeight > 256) frameHeight = 256;
         changed = true;
     }
 
     // Quick presets
-    ImGui::Text("Presets:");
+    ImGui::Text("%s", TR("animation_editor.presets"));
     if (ImGui::Button("16x16")) { frameWidth = 16; frameHeight = 16; changed = true; }
     ImGui::SameLine();
     if (ImGui::Button("32x32")) { frameWidth = 32; frameHeight = 32; changed = true; }
@@ -133,16 +135,16 @@ void AnimationEditor::RenderFrameSettings() {
 
     // Show grid info
     if (textureLoaded) {
-        ImGui::Text("Grid: %d columns x %d rows", columnsInSheet, rowsInSheet);
+        ImGui::Text(TR("animation_editor.grid"), columnsInSheet, rowsInSheet);
     }
 }
 
 void AnimationEditor::RenderSpriteSheetPreview() {
-    ImGui::Text("Sprite Sheet Preview");
+    ImGui::Text("%s", TR("animation_editor.sprite_sheet_preview"));
     ImGui::Spacing();
 
     if (!textureLoaded) {
-        ImGui::TextColored(ImVec4(1, 1, 0, 1), "No sprite sheet loaded");
+        ImGui::TextColored(ImVec4(1, 1, 0, 1), "%s", TR("animation_editor.no_sprite_sheet_loaded"));
         return;
     }
 
@@ -206,7 +208,7 @@ void AnimationEditor::RenderSpriteSheetPreview() {
     for (int row = 0; row < rowsInSheet; row++) {
         float y = cursorPos.y + row * scaledFrameH + scaledFrameH / 2 - 6;
         char label[16];
-        snprintf(label, sizeof(label), "Row %d", row);
+        snprintf(label, sizeof(label), TR("animation_editor.row_label"), row);
         drawList->AddText(ImVec2(cursorPos.x + 4, y), IM_COL32(255, 255, 255, 255), label);
     }
 
@@ -216,56 +218,66 @@ void AnimationEditor::RenderSpriteSheetPreview() {
 }
 
 void AnimationEditor::RenderAnimationDefiner() {
-    ImGui::Text("Define Animation");
+    ImGui::Text("%s", TR("animation_editor.define_animation"));
     ImGui::Spacing();
 
     if (!textureLoaded) {
-        ImGui::TextDisabled("Load a sprite sheet first");
+        ImGui::TextDisabled("%s", TR("animation_editor.load_sprite_sheet_first"));
         return;
     }
 
     // Animation base name (without direction suffix)
-    ImGui::Text("Base Name:");
+    ImGui::Text("%s", TR("animation_editor.base_name"));
     ImGui::SetNextItemWidth(-1);
     ImGui::InputText("##AnimName", nameBuffer, sizeof(nameBuffer));
 
     // Row selection
-    ImGui::Text("Row:");
+    ImGui::Text("%s", TR("animation_editor.row"));
     ImGui::SetNextItemWidth(-1);
     if (ImGui::SliderInt("##Row", &selectedRow, 0, std::max(0, rowsInSheet - 1))) {
         // Row changed
     }
 
     // Frame count
-    ImGui::Text("Frame Count:");
+    ImGui::Text("%s", TR("animation_editor.frame_count"));
     ImGui::SetNextItemWidth(-1);
     ImGui::SliderInt("##FrameCount", &selectedFrameCount, 1, columnsInSheet);
 
     // Frame rate
-    ImGui::Text("Frame Rate (FPS):");
+    ImGui::Text("%s", TR("animation_editor.frame_rate_fps"));
     ImGui::SetNextItemWidth(-1);
     ImGui::SliderFloat("##FrameRate", &selectedFrameRate, 1.0f, 30.0f, "%.1f");
 
     // Loop checkbox
-    ImGui::Checkbox("Loop", &selectedLoop);
+    ImGui::Checkbox(TR("animation_editor.loop"), &selectedLoop);
 
     // Trigger type
-    ImGui::Text("Trigger:");
-    const char* triggerOptions[] = { "LOOP", "INPUT", "EVENT", "IDLE" };
+    ImGui::Text("%s", TR("animation_editor.trigger"));
+    const char* triggerOptions[] = {
+        TR("animation_editor.trigger.loop"),
+        TR("animation_editor.trigger.input"),
+        TR("animation_editor.trigger.event"),
+        TR("animation_editor.trigger.idle")
+    };
     ImGui::SetNextItemWidth(-1);
     ImGui::Combo("##Trigger", &selectedTrigger, triggerOptions, 4);
 
     // Direction (without LEFT option since it's auto-created)
-    ImGui::Text("Direction:");
-    const char* directionOptions[] = { "NONE", "DOWN", "UP", "RIGHT" };
+    ImGui::Text("%s", TR("animation_editor.direction"));
+    const char* directionOptions[] = {
+        TR("animation_editor.direction.none"),
+        TR("animation_editor.direction.down"),
+        TR("animation_editor.direction.up"),
+        TR("animation_editor.direction.right")
+    };
     ImGui::SetNextItemWidth(-1);
     ImGui::Combo("##Direction", &selectedDirection, directionOptions, 4);
 
     // Auto-create LEFT checkbox (only show when RIGHT is selected)
     if (selectedDirection == 3) {  // RIGHT is index 3
-        ImGui::Checkbox("Auto-create LEFT (flipped)", &autoCreateLeft);
+        ImGui::Checkbox(TR("animation_editor.auto_create_left_flipped"), &autoCreateLeft);
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Automatically creates a LEFT animation\nusing the RIGHT frames flipped horizontally");
+            ImGui::SetTooltip("%s", TR("animation_editor.auto_create_left_tooltip"));
         }
     }
 
@@ -274,16 +286,16 @@ void AnimationEditor::RenderAnimationDefiner() {
     // Build the full animation name for preview
     AnimationDirection dir = static_cast<AnimationDirection>(selectedDirection);
     std::string fullName = std::string(nameBuffer) + GetDirectionSuffix(dir);
-    ImGui::Text("Will create: %s", fullName.c_str());
+    ImGui::Text(TR("animation_editor.will_create"), fullName.c_str());
     if (selectedDirection == 3 && autoCreateLeft) {
         std::string leftName = std::string(nameBuffer) + "_left";
-        ImGui::Text("  + %s (flipped)", leftName.c_str());
+        ImGui::Text(TR("animation_editor.will_create_flipped"), leftName.c_str());
     }
 
     ImGui::Spacing();
 
     // Add button
-    if (ImGui::Button("Add Animation", ImVec2(-1, 0))) {
+    if (ImGui::Button(TR("animation_editor.add_animation"), ImVec2(-1, 0))) {
         std::string baseName = nameBuffer;
 
         if (baseName.empty()) {
@@ -342,11 +354,11 @@ void AnimationEditor::RenderAnimationDefiner() {
 
 
 void AnimationEditor::RenderDefinedAnimationsList() {
-    ImGui::Text("Defined Animations (%d)", (int)definedAnimations.size());
+    ImGui::Text(TR("animation_editor.defined_animations"), (int)definedAnimations.size());
     ImGui::Spacing();
 
     if (definedAnimations.empty()) {
-        ImGui::TextDisabled("No animations defined yet");
+        ImGui::TextDisabled("%s", TR("animation_editor.no_animations_defined"));
         return;
     }
 
@@ -381,7 +393,6 @@ void AnimationEditor::RenderDefinedAnimationsList() {
         // Now the selectable - only process if button not hovered
         ImGui::SetNextItemWidth(-30);  // Reserve space for the button we already drew
         bool clicked = ImGui::Selectable("##select", isSelected, 0, ImVec2(0, 20));
-        bool selectableHovered = ImGui::IsItemHovered();
 
         // Only change preview if clicking selectable AND not hovering button
         if (clicked && !buttonHovered) {
@@ -396,10 +407,10 @@ void AnimationEditor::RenderDefinedAnimationsList() {
         // Show different color for auto-flipped animations
         if (anim.isAutoFlipped) {
             ImGui::TextColored(ImVec4(0.5f, 1.0f, 0.5f, 1.0f),
-                "%s (Row %d, %d frames) [FLIP]",
+                TR("animation_editor.row_frames_flipped"),
                 anim.name.c_str(), anim.row, anim.frameCount);
         } else {
-            ImGui::Text("%s (Row %d, %d frames)",
+            ImGui::Text(TR("animation_editor.row_frames"),
                 anim.name.c_str(), anim.row, anim.frameCount);
         }
 
@@ -419,7 +430,7 @@ void AnimationEditor::RenderDefinedAnimationsList() {
 
     // Clear all button
     if (!definedAnimations.empty()) {
-        if (ImGui::Button("Clear All")) {
+        if (ImGui::Button(TR("animation_editor.clear_all"))) {
             definedAnimations.clear();
             previewAnimIndex = -1;
         }
@@ -427,20 +438,20 @@ void AnimationEditor::RenderDefinedAnimationsList() {
 }
 
 void AnimationEditor::RenderAnimationPreview() {
-    ImGui::Text("Animation Preview");
+    ImGui::Text("%s", TR("animation_editor.animation_preview"));
     ImGui::Spacing();
 
     if (!textureLoaded || previewAnimIndex < 0 ||
         previewAnimIndex >= (int)definedAnimations.size()) {
-        ImGui::TextDisabled("Select an animation to preview");
+        ImGui::TextDisabled("%s", TR("animation_editor.select_animation_to_preview"));
         return;
     }
 
     const auto& anim = definedAnimations[previewAnimIndex];
 
-    ImGui::Text("Playing: %s (Frame %d/%d)%s",
+    ImGui::Text(TR("animation_editor.playing"),
                 anim.name.c_str(), previewFrame + 1, anim.frameCount,
-                anim.isAutoFlipped ? " [FLIPPED]" : "");
+                anim.isAutoFlipped ? TR("animation_editor.flipped_suffix") : "");
 
     // Calculate source rectangle for current frame
     float srcX = static_cast<float>(previewFrame * frameWidth);
@@ -473,29 +484,29 @@ void AnimationEditor::RenderAnimationPreview() {
 
 void AnimationEditor::RenderSaveSection(Engine& engine) {
     ImGui::Separator();
-    ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Save Animations");
+    ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "%s", TR("animation_editor.save_animations"));
 
     if (targetAsset) {
-        ImGui::Text("Target Asset: %s", targetAsset->name.c_str());
-        ImGui::Text("Animations: %zu", definedAnimations.size());
+        ImGui::Text(TR("animation_editor.target_asset"), targetAsset->name.c_str());
+        ImGui::Text(TR("animation_editor.animations_count"), definedAnimations.size());
 
         if (definedAnimations.empty()) {
-            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "No animations defined yet");
+            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "%s", TR("animation_editor.no_animations_defined"));
         }
 
         ImGui::Separator();
 
-        if (ImGui::Button("Save to Asset", ImVec2(-1, 0))) {
+        if (ImGui::Button(TR("animation_editor.save_to_asset"), ImVec2(-1, 0))) {
             SaveAnimationsToAsset();
         }
 
-        if (ImGui::Button("Close Editor", ImVec2(-1, 0))) {
+        if (ImGui::Button(TR("animation_editor.close_editor"), ImVec2(-1, 0))) {
             windowOpen = false;
             targetAsset = nullptr;
         }
     } else {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
-                          "No target asset! Open editor from Asset Console.");
+                          "%s", TR("animation_editor.no_target_asset"));
     }
 }
 

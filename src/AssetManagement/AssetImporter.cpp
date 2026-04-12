@@ -98,8 +98,8 @@ void AssetImporter::RenderFileBrowser() {
     ImGui::EndChild();
 
     if (textureLoaded) {
-        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Loaded: %s", currentTexturePath.c_str());
-        ImGui::Text("Size: %dx%d", currentTexture.width, currentTexture.height);
+        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), TR("importer.loaded_path"), currentTexturePath.c_str());
+        ImGui::Text(TR("importer.size"), currentTexture.width, currentTexture.height);
     }
 }
 
@@ -108,21 +108,21 @@ void AssetImporter::RenderTexturePreview() {
     ImGui::Separator();
 
     if (!textureLoaded) {
-        ImGui::TextColored(ImVec4(1, 1, 0, 1), "Select a PNG file to preview");
+        ImGui::TextColored(ImVec4(1, 1, 0, 1), "%s", TR("importer.select_png_to_preview"));
         return;
     }
 
     // DEBUG INFO
-    ImGui::Text("DEBUG INFO:");
+    /*ImGui::Text("DEBUG INFO:");
     ImGui::Text("Selected Asset Type Index: %d", selectedAssetType);
     if (selectedAssetType >= 0 && selectedAssetType < assetTypes.size()) {
         ImGui::Text("Asset Type Name: %s", assetTypes[selectedAssetType].key);
     }
     ImGui::Text("Frame Selected: %s", frameSelected ? "TRUE" : "FALSE");
     ImGui::Text("Frame Size: %dx%d", frameWidth, frameHeight);
-    ImGui::Text("Texture Size: %dx%d", currentTexture.width, currentTexture.height);
     ImGui::Text("Selected Frame: (%d, %d)", selectedFrameX, selectedFrameY);
-    ImGui::Separator();
+    ImGui::Separator(); */
+    ImGui::Text(TR("importer.texture_size"), currentTexture.width, currentTexture.height);
 
     ImVec2 availableSize = ImGui::GetContentRegionAvail();
     availableSize.y -= 150;  // More space for debug info
@@ -130,14 +130,14 @@ void AssetImporter::RenderTexturePreview() {
     // Determine what to show
     AssetType selectedType = assetTypes[selectedAssetType].type;
 
-    ImGui::Text("Checking conditions:");
+    /*ImGui::Text("Checking conditions:");
     ImGui::Text("Is ANIMATED/PLAYER/ENEMY? %s",
                (selectedType == AssetType::ANIMATED_SPRITESHEET ||
                 selectedType == AssetType::PLAYER ||
                 selectedType == AssetType::ENEMY) ? "YES" : "NO");
     ImGui::Text("Frame selected? %s", frameSelected ? "YES" : "NO");
     ImGui::Text("Frame smaller than texture? %s",
-               (frameWidth < currentTexture.width || frameHeight < currentTexture.height) ? "YES" : "NO");
+               (frameWidth < currentTexture.width || frameHeight < currentTexture.height) ? "YES" : "NO");*/
 
     bool showSelectedFrameOnly = false;
 
@@ -151,11 +151,11 @@ void AssetImporter::RenderTexturePreview() {
         showSelectedFrameOnly = true;
     }
 
-    ImGui::Text("Show Selected Frame Only? %s", showSelectedFrameOnly ? "YES" : "NO");
-    ImGui::Separator();
+    //ImGui::Text("Show Selected Frame Only? %s", showSelectedFrameOnly ? "YES" : "NO");
+    //ImGui::Separator();
 
     if (showSelectedFrameOnly) {
-        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "SHOWING SELECTED FRAME ONLY");
+        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "%s", TR("importer.showing_selected_frame_only"));
 
         float srcX = static_cast<float>(selectedFrameX * frameWidth);
         float srcY = static_cast<float>(selectedFrameY * frameHeight);
@@ -163,8 +163,8 @@ void AssetImporter::RenderTexturePreview() {
         ImVec2 uv0(srcX / currentTexture.width, srcY / currentTexture.height);
         ImVec2 uv1((srcX + frameWidth) / currentTexture.width, (srcY + frameHeight) / currentTexture.height);
 
-        ImGui::Text("UV0: (%.3f, %.3f)", uv0.x, uv0.y);
-        ImGui::Text("UV1: (%.3f, %.3f)", uv1.x, uv1.y);
+        ImGui::Text(TR("importer.uv0"), uv0.x, uv0.y);
+        ImGui::Text(TR("importer.uv1"), uv1.x, uv1.y);
 
         float scale = std::min(availableSize.x / frameWidth, availableSize.y / frameHeight);
         scale = std::max(scale, 1.0f);
@@ -184,7 +184,7 @@ void AssetImporter::RenderTexturePreview() {
                          IM_COL32(0, 255, 0, 255), 0.0f, 0, 3.0f);
 
     } else {
-        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "SHOWING FULL TEXTURE");
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "%s", TR("importer.showing_full_texture"));
 
         float scale = std::min(availableSize.x / currentTexture.width,
                               availableSize.y / currentTexture.height);
@@ -206,25 +206,25 @@ void AssetImporter::RenderFrameSelector() {
     AssetType selectedType = assetTypes[selectedAssetType].type;
 
     if (selectedType == AssetType::TILESET) {
-        ImGui::TextWrapped("TILESET: All tiles will be available. Set tile dimensions.");
+        ImGui::TextWrapped("%s", TR("importer.tileset_hint_line1"));
         ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f),
-                          "All frames will be processed as tiles.");
+                          "%s", TR("importer.tileset_hint_line2"));
     } else if (selectedType == AssetType::ANIMATED_SPRITESHEET ||
                selectedType == AssetType::PLAYER ||
                selectedType == AssetType::ENEMY) {
-        ImGui::TextWrapped("ANIMATED ASSET: Select ONE frame as placeholder.");
+        ImGui::TextWrapped("%s", TR("importer.animated_hint_line1"));
         ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f),
-                          "This frame will show in Asset Console and when placing.");
+                          "%s", TR("importer.animated_hint_line2"));
         ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
-                          "You'll assign animations to this asset later.");
+                          "%s", TR("importer.animated_hint_line3"));
     } else if (selectedType == AssetType::STATIC_SPRITESHEET) {
-        ImGui::TextWrapped("STATIC SPRITESHEET: Select specific frame to use.");
+        ImGui::TextWrapped("%s", TR("importer.static_hint_line1"));
         ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f),
-                          "Only selected frame will be used.");
+                          "%s", TR("importer.static_hint_line2"));
     } else {
-        ImGui::TextWrapped("INDIVIDUAL TEXTURE: Full image will be used.");
+        ImGui::TextWrapped("%s", TR("importer.individual_hint_line1"));
         ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
-                          "Leave at 'Full Image' or ignore frame settings.");
+                          "%s", TR("importer.individual_hint_line2"));
     }
 
     ImGui::Spacing();
@@ -233,7 +233,7 @@ void AssetImporter::RenderFrameSelector() {
 
     bool changed = false;
 
-    ImGui::Text("Frame Size:");
+    ImGui::Text("%s", TR("importer.frame_size"));
     ImGui::SetNextItemWidth(100);
     if (ImGui::InputInt("Width##Frame", &frameWidth, 8, 16)) {
         if (frameWidth < 1) frameWidth = 1;
@@ -248,8 +248,8 @@ void AssetImporter::RenderFrameSelector() {
         changed = true;
     }
 
-    ImGui::Text("Presets:");
-    if (ImGui::Button("Full Image")) {
+    ImGui::Text("%s", TR("importer.presets"));
+    if (ImGui::Button(TR("importer.full_image"))) {
         frameWidth = currentTexture.width;
         frameHeight = currentTexture.height;
         changed = true;
@@ -271,16 +271,16 @@ void AssetImporter::RenderFrameSelector() {
 
     if (columnsInSheet > 0 && rowsInSheet > 0) {
         ImGui::Spacing();
-        ImGui::Text("Spritesheet Grid: %d columns x %d rows", columnsInSheet, rowsInSheet);
+        ImGui::Text(TR("importer.spritesheet_grid"), columnsInSheet, rowsInSheet);
 
         if (frameWidth < currentTexture.width || frameHeight < currentTexture.height) {
             ImGui::Spacing();
 
             if (selectedType == AssetType::TILESET) {
                 ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
-                                  "All %d tiles will be available", columnsInSheet * rowsInSheet);
+                                   TR("importer.all_tiles_available"), columnsInSheet * rowsInSheet);
             } else {
-                ImGui::Text("Select Frame (Placeholder):");
+                ImGui::Text("%s", TR("importer.select_frame_placeholder"));
                 ImGui::SetNextItemWidth(150);
                 if (ImGui::SliderInt("Column##FrameX", &selectedFrameX, 0, columnsInSheet - 1)) {
                     frameSelected = true;
@@ -291,11 +291,11 @@ void AssetImporter::RenderFrameSelector() {
                     frameSelected = true;
                 }
 
-                ImGui::Checkbox("Use Selected Frame", &frameSelected);
+                ImGui::Checkbox(TR("importer.use_selected_frame"), &frameSelected);
 
                 if (frameSelected) {
                     ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f),
-                                      "Selected: Column %d, Row %d (Frame %d)",
+                                       TR("importer.selected_frame_info"),
                                       selectedFrameX, selectedFrameY,
                                       selectedFrameY * columnsInSheet + selectedFrameX);
                 }
@@ -329,10 +329,10 @@ void AssetImporter::RenderAssetParameters() {
 
     ImGui::Text("%s", TR("importer.asset_type"));
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::BeginCombo("##AssetType", assetTypes[selectedAssetType].key)) {
+    if (ImGui::BeginCombo("##AssetType", TR(assetTypes[selectedAssetType].key))) {
         for (int i = 0; i < (int)assetTypes.size(); i++) {
             bool isSelected = (selectedAssetType == i);
-            if (ImGui::Selectable(assetTypes[i].key, isSelected)) {
+            if (ImGui::Selectable(TR(assetTypes[i].key), isSelected)) {
                 selectedAssetType = i;
                 isTileset = (assetTypes[i].type == AssetType::TILESET);
             }

@@ -40,6 +40,7 @@ public:
 
     Mode currentMode = Mode::EDIT;
     ToolState currentTool = ToolState::NONE;
+
     bool playModeWindowOpen = false;
     RenderTexture2D playModeTexture;
 

@@ -46,6 +46,12 @@ public:
     static float assetConsoleHeightRatio;
 
 private:
+    struct TutorialState {
+        bool isOpen = false;
+        int currentStep = 0;
+    };
+
+    static void RenderTutorialWindow();
     static void RenderModeControls(Engine& engine);
     static void RenderCameraResolutionControls(Engine& engine);
     static void RenderAssetFilters(AssetManager& assetManager, const std::vector<std::string>& categories);
@@ -82,5 +88,6 @@ private:
     static int bulkEditStartY;
     static int bulkEditEndX;
     static int bulkEditEndY;
+    static TutorialState tutorialState;
 
 };

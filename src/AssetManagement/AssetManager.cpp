@@ -1,6 +1,37 @@
 #include "AssetManager.h"
 #include "UI/UI.h"
 #include <algorithm>
+#include <filesystem>
+
+namespace {
+    std::string NormalizeLegacyAssetPath(const std::string& rawPath) {
+        std::string normalized = rawPath;
+        std::replace(normalized.begin(), normalized.end(), '\\', '/');
+
+        const std::string legacyPrefix = "../src/assets/";
+        if (normalized.rfind(legacyPrefix, 0) == 0) {
+            normalized = "assets/" + normalized.substr(legacyPrefix.size());
+        }
+        return normalized;
+    }
+
+    std::string ResolveAssetPath(const std::string& rawPath) {
+        const std::string normalized = NormalizeLegacyAssetPath(rawPath);
+
+        if (FileExists(normalized.c_str())) {
+            return normalized;
+        }
+
+        // Support cases where process working directory is one level above.
+        const std::filesystem::path alt = std::filesystem::path("..") / normalized;
+        const std::string altString = alt.generic_string();
+        if (FileExists(altString.c_str())) {
+            return altString;
+        }
+
+        return normalized;
+    }
+}
 
 AssetManager::AssetManager()
 {
@@ -13,10 +44,13 @@ AssetManager::~AssetManager()
 }
 
 void AssetManager::LoadTextureForAsset(Asset* asset) {
-    if (FileExists(asset->path.c_str()))
+    const std::string resolvedPath = ResolveAssetPath(asset->path);
+
+    if (FileExists(resolvedPath.c_str()))
     {
-        asset->texture = LoadTexture(asset->path.c_str());
+        asset->texture = LoadTexture(resolvedPath.c_str());
         asset->loaded = true;
+        asset->path = resolvedPath;
 
         // pixel-perfect sampling for tiles/sprites
         SetTextureFilter(asset->texture, TEXTURE_FILTER_POINT);
@@ -26,7 +60,7 @@ void AssetManager::LoadTextureForAsset(Asset* asset) {
     }
     else
     {
-        UI::SetDebugMessage("[ASSET] Failed to load texture: " + asset->path);
+        UI::SetDebugMessage("[ASSET] Failed to load texture: " + resolvedPath);
         asset->loaded = false;
     }
 }

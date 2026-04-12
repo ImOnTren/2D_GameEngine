@@ -69,7 +69,7 @@ struct Asset {
 };
 
 class AssetManager{
-    public:
+public:
     AssetManager();
     ~AssetManager();
 
@@ -101,6 +101,6 @@ class AssetManager{
                            int selectedFrameY,  // Row index
                            AssetType type);
 
-    private:
+private:
     std::unordered_map<std::string, std::unique_ptr<Asset>> assets;
 };

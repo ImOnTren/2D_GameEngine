@@ -86,3 +86,10 @@ add_executable(2D_GameEngine
 )
 
 target_link_libraries(2D_GameEngine PRIVATE raylib nlohmann_json::nlohmann_json)
+
+# Keep runtime assets next to the executable so double-clicking the .exe works.
+add_custom_command(TARGET 2D_GameEngine POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/src/assets"
+        "$<TARGET_FILE_DIR:2D_GameEngine>/assets"
+)

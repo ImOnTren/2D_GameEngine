@@ -31,7 +31,7 @@ private:
     };
     std::vector<FileEntry> foundPngFiles;
     int selectedFileIndex = -1;
-    char searchPathBuffer[256] = "../src/assets";
+    char searchPathBuffer[256] = "assets";
     bool needsRescan = true;
 
     // Currently loaded texture for preview
