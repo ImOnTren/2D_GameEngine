@@ -1260,6 +1260,7 @@ void Engine::ResolveCollisionInPlayMode() {
         }
     }
 
+
     // Re-read after possible depenetration
     previousPlayerPos = player->GetPreviousPosition();
     currentPlayerPos = player->GetPosition();
