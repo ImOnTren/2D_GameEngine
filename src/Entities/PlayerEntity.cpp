@@ -266,7 +266,7 @@ void PlayerEntity::Draw() {
         };
 
         if (asset->hasAnimations && animator.IsPlaying() && animator.IsFlippedHorizontal()) {
-            destRect.width = -destRect.width;
+            sourceRect.width = -sourceRect.width;
         }
 
         DrawTexturePro(drawTexture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);

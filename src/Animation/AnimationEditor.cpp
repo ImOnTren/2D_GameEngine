@@ -524,7 +524,7 @@ void AnimationEditor::RenderAnimationPreview(Engine& engine) {
 
     ImGui::Text(TR("animation_editor.playing"),
                 anim.name.c_str(), previewFrame + 1, anim.frameCount,
-                (anim.isAutoFlipped || anim.direction == AnimationDirection::LEFT) ? TR("animation_editor.flipped_suffix") : "");
+                anim.isAutoFlipped ? TR("animation_editor.flipped_suffix") : "");
     ImGui::Text("Source: %s", previewSource.c_str());
     if (usingFallbackTexture) {
         ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "Source Asset ID not loaded, showing fallback texture");
@@ -543,7 +543,7 @@ void AnimationEditor::RenderAnimationPreview(Engine& engine) {
     // UV coordinates for the frame
     ImVec2 uv0, uv1;
 
-    if (anim.isAutoFlipped || anim.direction == AnimationDirection::LEFT) {
+    if (anim.isAutoFlipped) {
         // Flip horizontally by swapping U coordinates
         uv0 = ImVec2((srcX + srcW) / previewTexture.width,
                      srcY / previewTexture.height);
@@ -798,6 +798,7 @@ void AnimationEditor::OpenForAsset(Asset* asset) {
             def.name = name;
             def.sourceAssetId = anim.sourceAssetId.empty() ? targetAsset->id : anim.sourceAssetId;
             def.loop = anim.loop;
+            def.isAutoFlipped = anim.flipHorizontallyAtRuntime;
             def.trigger = anim.trigger;
             def.direction = anim.direction;
 
@@ -861,6 +862,7 @@ void AnimationEditor::SaveAnimationsToAsset(Engine& engine) {
                 def.frameCount,
                 def.frameRate,
                 def.loop,
+                def.isAutoFlipped,
                 def.trigger,
                 def.direction,
                 def.sourceAssetId.empty() ? targetAsset->id : def.sourceAssetId);

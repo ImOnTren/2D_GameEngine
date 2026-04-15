@@ -27,7 +27,7 @@ void Animator::Play(const std::string& animationName, bool forceRestart) {
     elapsedTime = 0.0f;
     playing = true;
     finished = false;
-    flipHorizontal = false;  // Direct play doesn't flip
+    flipHorizontal = anim->flipHorizontallyAtRuntime;
 }
 
 void Animator::PlayDirectional(const std::string& baseName, AnimationDirection direction, bool forceRestart) {
@@ -43,7 +43,7 @@ void Animator::PlayDirectional(const std::string& baseName, AnimationDirection d
         const Animation* leftAnim = animationSet->GetAnimation(leftName);
         if (leftAnim && !leftAnim->frames.empty()) {
             animName = leftName;
-            needsFlip = false;
+            needsFlip = leftAnim->flipHorizontallyAtRuntime;
         } else {
             animName = BuildAnimationName(baseName, AnimationDirection::RIGHT);
             needsFlip = true;

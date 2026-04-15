@@ -32,6 +32,11 @@ public:
 
 private:
     void RecalculateCollisionBox();
+    void EnsureAnimatorInitialized();
+    static AnimationDirection ResolveDirectionFromVelocity(const Vector2& vel, AnimationDirection fallback);
+    static std::string BuildDirectionalName(const std::string& baseName, AnimationDirection direction);
+    const Animation* FindDirectionalAnimation(const std::string& baseName, AnimationDirection direction) const;
+    bool PlayDirectionalTriggered(const std::string& baseName, AnimationTrigger trigger, AnimationDirection direction, bool forceRestart = false);
 
     Grid& grid;
     int cellX = 0;
@@ -39,6 +44,9 @@ private:
     int layer = 0;
     Asset* asset = nullptr;
     float speed = 100.0f;
+
+    Animator animator;
+    AnimationDirection lastFacingDirection = AnimationDirection::DOWN;
 
     float scale = 1.0f;
     Vector2 baseSize{16.0f, 16.0f};

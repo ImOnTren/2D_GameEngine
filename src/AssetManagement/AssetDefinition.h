@@ -15,6 +15,7 @@ struct AnimationData {
     bool loop = true;
     AnimationTrigger trigger = AnimationTrigger::LOOP;
     AnimationDirection direction = AnimationDirection::NONE;
+    bool flipHorizontallyAtRuntime = false;
 };
 
 struct AssetDefinition {

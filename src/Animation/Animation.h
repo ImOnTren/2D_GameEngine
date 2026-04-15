@@ -38,6 +38,7 @@ struct Animation {
     std::string sourceAssetId;          // Which asset texture this animation should use
     Texture2D sourceTexture = {0};      // Resolved texture (can differ from AnimationSet::texture)
     bool hasSourceTexture = false;
+    bool flipHorizontallyAtRuntime = false;
 
     float GetTotalDuration() const {
         float total = 0.0f;
@@ -78,7 +79,7 @@ struct AnimationSet {
 
     // Helper to add an animation from row data
     void AddAnimationFromRow(const std::string& name, int row, int frameCount,
-                             float frameRate, bool looping = true,
+                             float frameRate, bool looping = true, bool flipHorizontallyAtRuntime = false,
                              AnimationTrigger trigger = AnimationTrigger::LOOP,
                              AnimationDirection direction = AnimationDirection::NONE,
                              const std::string& sourceAssetId = "") {
@@ -88,6 +89,7 @@ struct AnimationSet {
         anim.trigger = trigger;
         anim.direction = direction;
         anim.sourceAssetId = sourceAssetId;
+        anim.flipHorizontallyAtRuntime = flipHorizontallyAtRuntime;
 
         float frameDuration = 1.0f / frameRate;
 

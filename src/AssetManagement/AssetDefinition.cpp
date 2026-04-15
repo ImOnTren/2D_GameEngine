@@ -51,7 +51,6 @@ json AssetDefinitionToJson(const AssetDefinition& def) {
         j["tileHeight"] = def.tileHeight;
     }
 
-    // NEW: Serialize animations
     j["hasAnimations"] = def.hasAnimations;
     if (def.hasAnimations && !def.animations.empty()) {
         json animArray = json::array();
@@ -63,6 +62,7 @@ json AssetDefinitionToJson(const AssetDefinition& def) {
             animJson["frameCount"] = anim.frameCount;
             animJson["frameRate"] = anim.frameRate;
             animJson["loop"] = anim.loop;
+            animJson["flipHorizontallyAtRuntime"] = anim.flipHorizontallyAtRuntime;
             animJson["trigger"] = anim.trigger;
             animJson["direction"] = anim.direction;
             animArray.push_back(animJson);
@@ -101,6 +101,7 @@ AssetDefinition JsonToAssetDefinition(const json& j) {
             anim.frameRate = animJson.value("frameRate", 8.0f);
             anim.loop = animJson.value("loop", true);
             anim.trigger = static_cast<AnimationTrigger>(animJson.value("trigger", 0));
+            anim.flipHorizontallyAtRuntime = animJson.value("flipHorizontallyAtRuntime", false);
             anim.direction = static_cast<AnimationDirection>(animJson.value("direction", 0));
             def.animations.push_back(anim);
         }
@@ -158,6 +159,7 @@ bool SaveAssetDefinitions(const AssetManager& assetManager, const std::string& f
                     animData.loop = anim.loop;
                     animData.trigger = anim.trigger;
                     animData.direction = anim.direction;
+                    animData.flipHorizontallyAtRuntime = anim.flipHorizontallyAtRuntime;
 
                     // Extract row and frame count from first frame
                     if (!anim.frames.empty()) {
@@ -267,6 +269,7 @@ bool LoadAssetDefinitions(AssetManager& assetManager, const std::string& filepat
                         animData.frameCount,
                         animData.frameRate,
                         animData.loop,
+                        animData.flipHorizontallyAtRuntime,
                         animData.trigger,
                         animData.direction,
                         animData.sourceAssetId.empty() ? asset->id : animData.sourceAssetId
