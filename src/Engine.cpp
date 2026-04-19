@@ -36,35 +36,7 @@ void Engine::Init() {
     playModeTexture = LoadRenderTexture(availableResolutions[selectedResolutionIndex].width,
                                        availableResolutions[selectedResolutionIndex].height);
 
-    LoadAssets();
-
     AssetPersistence::LoadAssetDefinitions(assetManager, "assets.json");
-}
-
-void Engine::LoadAssets()
-{
-    assetManager.LoadAsset("grass_tileset", "Grass_tileset", "Tileset", "assets/Farm/Tileset/Modular/Tileset Grass Spring.png", 16, 16);
-    assetManager.LoadAsset("winter_tileset", "Winter_tileset", "Tileset", "assets/Farm/Tileset/Modular/Tileset Grass Winter.png", 16, 16);
-    assetManager.LoadAsset("caves_tileset", "Caves_tileset", "Tileset", "assets/Farm/Tileset/Modular/Caves.png", 16, 16);
-    assetManager.LoadAsset("tilled_soil_tileset", "Tilled_soil_tileset", "Tileset", "assets/Farm/Tileset/Modular/Tilled Soil and wet soil.png", 16, 16);
-    assetManager.LoadAsset("all_props_tileset", "all_props_tileset", "Tileset", "assets/Farm/Tileset/Modular/ALL props seasons.png", 16, 16);
-    assetManager.LoadAsset("ground_road_tileset", "road_tileset", "Tileset", "assets/Exterior/Road.png", 16, 16);
-    assetManager.LoadAsset("fence_wood_tileset", "Fence_wood_tileset", "Tileset", "assets/Exterior/Fence and Bridge/Fence Wood.png", 16, 16);
-    assetManager.LoadAsset("fence_stone_tileset", "Fence_stone_tileset", "Tileset", "assets/Exterior/Fence and Bridge/Fence Stone.png", 16, 16);
-    assetManager.LoadAsset("broken_house8", "Broken_House_8_texture", "Static Texture", "assets/Exterior/Houses/8.png");
-    assetManager.LoadAsset("broken_house_resized8", "Broken_House_8_resized_texture", "Static Texture", "assets/Exterior/Houses/8 - resized.png");
-    assetManager.LoadAsset("broken_house7", "Broken_House_7_texture", "Static Texture", "assets/Exterior/Houses/7.png");
-    assetManager.LoadAsset("broken_house6", "Broken_House_6_texture", "Static Texture", "assets/Exterior/Houses/6.png");
-    assetManager.LoadAsset("broken_house5", "Broken_House_5_texture", "Static Texture", "assets/Exterior/Houses/5.png");
-    assetManager.LoadAsset("broken_house4", "Broken_House_4_texture", "Static Texture", "assets/Exterior/Houses/4.png");
-    assetManager.LoadAsset("broken_house3", "Broken_House_3_texture", "Static Texture", "assets/Exterior/Houses/3.png");
-    assetManager.LoadAsset("broken_house2", "Broken_House_2_texture", "Static Texture", "assets/Exterior/Houses/2.png");
-    assetManager.LoadAsset("broken_house1", "Broken_House_1_texture", "Static Texture", "assets/Exterior/Houses/1.png");
-    assetManager.LoadAsset("water_house", "water_house_texture", "Static Texture", "assets/Exterior/Houses/NPCS Houses/1.png");
-    assetManager.LoadAsset("outside_table", "outside_table_texture", "Static Texture", "assets/Exterior/Table.png");
-    assetManager.LoadAsset("ice_cream_car", "ice_cream_car_texture", "Static Texture", "assets/Exterior/ice cream car.png");
-    assetManager.LoadAsset("birch_tree", "birch_tree_texture", "Static Texture", "assets/Farm/Tree/Common/No Shadow/Birch Tree single.png");
-    assetManager.LoadAsset("mahogany_tree", "mahogany_tree_texture", "Static Texture", "assets/Farm/Tree/Common/No Shadow/Mahogany Tree single.png");
 }
 
 std::string Engine::BuildAnimatedTileKey(const std::string& assetID, const int tileIndex) const {
@@ -117,27 +89,27 @@ bool Engine::ResolveAnimatedTileFrame(const TileData& tile, const Asset*& outAss
         return true;
     }
 
-    float totalDuration = 0.0f;
+    double totalDuration = 0.0;
     for (const auto& frame : def.frames) {
-        totalDuration += std::max(0.001f, frame.duration);
+        totalDuration += std::max(0.001, frame.duration);
     }
-    if (totalDuration <= 0.0f) {
+    if (totalDuration <= 0.0) {
         outSourceRect = assetManager.GetSpecificSprite(outAsset, tile.tileIndex);
         return true;
     }
 
-    float localTime = animatedTileClockSeconds;
+    double localTime = static_cast<double>(animatedTileClockSeconds);
     if (def.loop) {
         localTime = std::fmod(localTime, totalDuration);
-        if (localTime < 0.0f) localTime += totalDuration;
+        if (localTime < 0.0) localTime += totalDuration;
     } else {
-        localTime = std::min(localTime, totalDuration - 0.001f);
+        localTime = std::min(localTime, totalDuration - 0.001);
     }
 
     const AnimatedTileFrame* selectedFrame = &def.frames.back();
-    float accumulator = 0.0f;
+    double accumulator = 0.0;
     for (const auto& frame : def.frames) {
-        accumulator += std::max(0.001f, frame.duration);
+        accumulator += std::max(0.001, frame.duration);
         if (localTime < accumulator) {
             selectedFrame = &frame;
             break;
@@ -388,10 +360,12 @@ void Engine::HandleTileRemoval()
         // Only remove if we're on a different tile than last time
         if (gridX != lastPlacedTileX || gridY != lastPlacedTileY)
         {
-            if (tileMap.HasTile(gridX, gridY))
+            if (tileMap.HasTile(gridX, gridY, tileToolState.activeLayer))
             {
-                tileMap.RemoveTileFromLayer(gridX, gridY, tileToolState.activeLayer);
-                UI::SetDebugMessage("[INFO] Tile removed at (" + std::to_string(gridX) + ", " + std::to_string(gridY) + ")");
+                if (tileMap.RemoveTileFromLayer(gridX, gridY, tileToolState.activeLayer)) {
+                    UI::SetDebugMessage("[INFO] Tile removed at (" + std::to_string(gridX) + ", " + std::to_string(gridY) +
+                                        ") from layer " + std::to_string(tileToolState.activeLayer));
+                }
             }
 
             lastPlacedTileX = gridX;
@@ -474,7 +448,6 @@ void Engine::DrawPlayModeTiles()
                 static_cast<float>(tileSize),
                 static_cast<float>(tileSize)
             };
-            //DrawTextureRec(asset->texture, destRect, {0, 0}, WHITE);
             DrawTexturePro(asset->texture, sourceRect, destRect, {0, 0}, 0.0f, WHITE);
         }
     }
@@ -825,7 +798,7 @@ void Engine::HandleAssetRemoval() {
         // Iterate through entities to find static entities under the mouse
         for (auto it = entities.begin(); it != entities.end(); ++it) {
             if (auto* staticEntity = dynamic_cast<StaticEntity*>(it->get())) {
-                Rectangle entityBounds = staticEntity->GetBounds();
+                Rectangle entityBounds = staticEntity->GetDrawBounds();
 
                 if (CheckCollisionPointRec(worldPos, entityBounds)) {
                     UI::SetDebugMessage("[INFO] Removed asset '" +
@@ -1342,7 +1315,7 @@ void Engine::Run() {
         if (IsKeyPressed(KEY_W)) testAnimator.PlayDirectional("idle", AnimationDirection::UP);
         if (IsKeyPressed(KEY_A)) testAnimator.PlayDirectional("idle", AnimationDirection::LEFT);
 
-        if (IsKeyPressed(KEY_SEVEN)) {
+        if (IsKeyPressed(KEY_CAPS_LOCK)) {
             animationEditor.SetOpen(!animationEditor.IsOpen());
         }
 

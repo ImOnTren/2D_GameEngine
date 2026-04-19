@@ -39,6 +39,8 @@ struct AssetDefinition {
 
     // Animation data
     bool hasAnimations = false;
+    int animationFrameWidth = 0;
+    int animationFrameHeight = 0;
     std::vector<AnimationData> animations;
 };
 

@@ -15,10 +15,7 @@ bool TileMap::HasTile(int x, int y, int layer){
         if (layer == -1) {
             return true;
         }
-        auto& tileLayers = it->second;
-        if (layer >= 0 && layer < static_cast<int>(tileLayers.size())) {
-            return true;
-        }
+        return it->second.find(layer) != it->second.end();
     }
     return false;
 }
@@ -35,8 +32,9 @@ TileData TileMap::GetTile(int x, int y, int layer){
     auto it = tiles.find(id);
     if (it != tiles.end()) {
         auto& tileLayers = it->second;
-        if (layer >= 0 && layer < static_cast<int>(tileLayers.size())) {
-            return tileLayers[layer];
+        auto layerIt = tileLayers.find(layer);
+        if (layerIt != tileLayers.end()) {
+            return layerIt->second;
         }
     }
     return TileData{};
@@ -63,15 +61,17 @@ std::map<int, TileData> *TileMap::GetTilePtr(int x, int y) {
     return nullptr;
 }
 
-void TileMap::RemoveTileFromLayer(int x, int y, int layer) {
+bool TileMap::RemoveTileFromLayer(int x, int y, int layer) {
     uint64_t id = PositionToID(x, y);
     auto it = tiles.find(id);
     if (it != tiles.end()) {
-        it->second.erase(layer); // Remove only the specific layer
+        const size_t removed = it->second.erase(layer); // Remove only the specific layer
         if (it->second.empty()) {
             tiles.erase(it); // Remove the coordinate entirely if no layers left
         }
+        return removed > 0;
     }
+    return false;
 }
 
 int TileMap::GetLayerCount(int x, int y) {

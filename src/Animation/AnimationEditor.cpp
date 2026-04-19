@@ -161,9 +161,9 @@ void AnimationEditor::RenderSpriteSheetPreview() {
         ImGui::TextColored(ImVec4(1, 1, 0, 1), "%s", TR("animation_editor.no_sprite_sheet_loaded"));
         return;
     }
-    ImGui::Text("Sheet Source: %s", previewLabel.c_str());
+    ImGui::Text(TR("animation_editor.sheet_source"), previewLabel.c_str());
     if (sourceMissing) {
-        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "Source Asset ID not loaded, showing fallback sheet");
+        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "%s", TR("animation_editor.source_asset_missing_showing_fallback_sheet"));
     }
 
     const int localColumns = std::max(1, previewTexture.width / frameWidth);
@@ -246,11 +246,11 @@ void AnimationEditor::RenderAnimationDefiner() {
     ImGui::SetNextItemWidth(-1);
     ImGui::InputText("##AnimName", nameBuffer, sizeof(nameBuffer));
 
-    ImGui::Text("Source Asset ID");
+    ImGui::Text("%s", TR("animation_editor.source_asset_id"));
     ImGui::SetNextItemWidth(-1);
     bool sourceIdChanged = ImGui::InputText("##AnimSourceAssetID", sourceAssetIdBuffer, sizeof(sourceAssetIdBuffer));
     if (targetAsset) {
-        if (ImGui::Button("Use Target Asset", ImVec2(-1, 0))) {
+        if (ImGui::Button(TR("animation_editor.use_target_asset"), ImVec2(-1, 0))) {
             strncpy(sourceAssetIdBuffer, targetAsset->id.c_str(), sizeof(sourceAssetIdBuffer) - 1);
             sourceAssetIdBuffer[sizeof(sourceAssetIdBuffer) - 1] = '\0';
             sourceIdChanged = true;
@@ -274,12 +274,12 @@ void AnimationEditor::RenderAnimationDefiner() {
     }
 
     if (!hasSourceTexture) {
-        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "No loaded texture for this Source Asset ID");
+        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "%s", TR("animation_editor.no_loaded_texture_for_source_asset_id"));
     } else {
-        ImGui::Text("Source Sheet: %s (%dx%d)", resolvedLabel.c_str(), sourceTexture.width, sourceTexture.height);
+        ImGui::Text(TR("animation_editor.source_sheet"), resolvedLabel.c_str(), sourceTexture.width, sourceTexture.height);
     }
     if (sourceMissing) {
-        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "Source asset missing, using fallback where possible");
+        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "%s", TR("animation_editor.source_asset_missing_using_fallback"));
     }
 
     // Row selection
@@ -313,22 +313,24 @@ void AnimationEditor::RenderAnimationDefiner() {
     ImGui::SetNextItemWidth(-1);
     ImGui::Combo("##Trigger", &selectedTrigger, triggerOptions, 4);
 
-    // Direction (without LEFT option since it's auto-created)
+    // Direction
     ImGui::Text("%s", TR("animation_editor.direction"));
     const char* directionOptions[] = {
         TR("animation_editor.direction.none"),
         TR("animation_editor.direction.down"),
         TR("animation_editor.direction.up"),
-        TR("animation_editor.direction.right")
+        TR("animation_editor.direction.right"),
+        TR("animation_editor.direction.left")
     };
     ImGui::SetNextItemWidth(-1);
-    ImGui::Combo("##Direction", &selectedDirection, directionOptions, 4);
+    ImGui::Combo("##Direction", &selectedDirection, directionOptions, 5);
 
-    // Auto-create LEFT checkbox (only show when RIGHT is selected)
-    if (selectedDirection == 3) {  // RIGHT is index 3
-        ImGui::Checkbox(TR("animation_editor.auto_create_left_flipped"), &autoCreateLeft);
+    // Auto-create opposite horizontal direction checkbox (LEFT <-> RIGHT)
+    if (selectedDirection == static_cast<int>(AnimationDirection::RIGHT) ||
+        selectedDirection == static_cast<int>(AnimationDirection::LEFT)) {
+        ImGui::Checkbox(TR("animation_editor.auto_create_opposite_flipped"), &autoCreateOppositeHorizontal);
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("%s", TR("animation_editor.auto_create_left_tooltip"));
+            ImGui::SetTooltip("%s", TR("animation_editor.auto_create_opposite_tooltip"));
         }
     }
 
@@ -338,9 +340,13 @@ void AnimationEditor::RenderAnimationDefiner() {
     AnimationDirection dir = static_cast<AnimationDirection>(selectedDirection);
     std::string fullName = std::string(nameBuffer) + GetDirectionSuffix(dir);
     ImGui::Text(TR("animation_editor.will_create"), fullName.c_str());
-    if (selectedDirection == 3 && autoCreateLeft) {
-        std::string leftName = std::string(nameBuffer) + "_left";
-        ImGui::Text(TR("animation_editor.will_create_flipped"), leftName.c_str());
+    if ((selectedDirection == static_cast<int>(AnimationDirection::RIGHT) ||
+         selectedDirection == static_cast<int>(AnimationDirection::LEFT)) &&
+        autoCreateOppositeHorizontal) {
+        const AnimationDirection oppositeDir =
+            (dir == AnimationDirection::RIGHT) ? AnimationDirection::LEFT : AnimationDirection::RIGHT;
+        std::string oppositeName = std::string(nameBuffer) + GetDirectionSuffix(oppositeDir);
+        ImGui::Text(TR("animation_editor.will_create_flipped"), oppositeName.c_str());
     }
 
     ImGui::Spacing();
@@ -378,25 +384,28 @@ void AnimationEditor::RenderAnimationDefiner() {
                 definedAnimations.push_back(def);
                 UI::SetDebugMessage("[ANIMATION EDITOR] Added animation: " + def.name);
 
-                // Auto-create LEFT if RIGHT was added and checkbox is checked
-                if (dir == AnimationDirection::RIGHT && autoCreateLeft) {
-                    AnimationDefinition leftDef = def;
-                    leftDef.name = baseName + "_left";
-                    leftDef.direction = AnimationDirection::LEFT;
-                    leftDef.isAutoFlipped = true;
+                // Auto-create opposite horizontal variant if requested.
+                if ((dir == AnimationDirection::RIGHT || dir == AnimationDirection::LEFT) &&
+                    autoCreateOppositeHorizontal) {
+                    const AnimationDirection oppositeDir =
+                        (dir == AnimationDirection::RIGHT) ? AnimationDirection::LEFT : AnimationDirection::RIGHT;
+                    AnimationDefinition oppositeDef = def;
+                    oppositeDef.name = baseName + GetDirectionSuffix(oppositeDir);
+                    oppositeDef.direction = oppositeDir;
+                    oppositeDef.isAutoFlipped = true;
 
                     // Check for duplicate
-                    bool leftDuplicate = false;
+                    bool oppositeDuplicate = false;
                     for (const auto& existing : definedAnimations) {
-                        if (existing.name == leftDef.name) {
-                            leftDuplicate = true;
+                        if (existing.name == oppositeDef.name) {
+                            oppositeDuplicate = true;
                             break;
                         }
                     }
 
-                    if (!leftDuplicate) {
-                        definedAnimations.push_back(leftDef);
-                        UI::SetDebugMessage("[ANIMATION EDITOR] Auto-created: " + leftDef.name + " (flipped)");
+                    if (!oppositeDuplicate) {
+                        definedAnimations.push_back(oppositeDef);
+                        UI::SetDebugMessage("[ANIMATION EDITOR] Auto-created: " + oppositeDef.name + " (flipped)");
                     }
                 }
             }
@@ -518,16 +527,16 @@ void AnimationEditor::RenderAnimationPreview(Engine& engine) {
     }
 
     if (previewTexture.id == 0 || previewTexture.width <= 0 || previewTexture.height <= 0) {
-        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "No preview texture resolved");
+        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "%s", TR("animation_editor.no_preview_texture_resolved"));
         return;
     }
 
     ImGui::Text(TR("animation_editor.playing"),
                 anim.name.c_str(), previewFrame + 1, anim.frameCount,
                 anim.isAutoFlipped ? TR("animation_editor.flipped_suffix") : "");
-    ImGui::Text("Source: %s", previewSource.c_str());
+    ImGui::Text(TR("animation_editor.source"), previewSource.c_str());
     if (usingFallbackTexture) {
-        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "Source Asset ID not loaded, showing fallback texture");
+        ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "%s", TR("animation_editor.source_asset_missing_showing_fallback_texture"));
     }
 
     // Calculate source rectangle for current frame

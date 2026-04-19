@@ -87,7 +87,7 @@ public:
     struct AnimatedTileFrame {
         std::string assetID;
         int tileIndex = 0;
-        float duration = 0.2f;
+        double duration = 0.2;
     };
 
     struct AnimatedTileDefinition {
@@ -338,6 +338,5 @@ private:
     void CreatePlayModeSnapshots();
     void UpdatePlayModeCamera();
     void UpdateEditModeCamera();
-    void LoadAssets();
     void ResolveCollisionInPlayMode();
 };

@@ -96,6 +96,6 @@ private:
     static int tileAnimationBaseIndex;
     static char tileAnimationFrameAssetBuffer[128];
     static int tileAnimationFrameIndex;
-    static float tileAnimationFrameDuration;
+    static double tileAnimationFrameDuration;
 
 };

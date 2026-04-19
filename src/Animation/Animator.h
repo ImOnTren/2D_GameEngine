@@ -14,9 +14,8 @@ public:
     // Play animation by name
     void Play(const std::string& animationName, bool forceRestart = false);
 
-    // Play a directional animation (automatically handles left-flip)
-    // For example: PlayDirectional("idle", AnimationDirection::LEFT)
-    // will play "idle_right" but set the flip flag
+    // Play a directional animation and auto-mirror missing horizontal variants.
+    // If LEFT is missing, RIGHT can be used flipped; if RIGHT is missing, LEFT can be used flipped.
     void PlayDirectional(const std::string& baseName, AnimationDirection direction, bool forceRestart = false);
 
     void Stop();

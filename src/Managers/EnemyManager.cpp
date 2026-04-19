@@ -48,7 +48,7 @@ bool EnemyManager::PlaceEnemy(Vector2 mouseScreen, Camera2D camera, std::vector<
     int gridY = static_cast<int>(mouseWorld.y / tileSize);
 
     if (!grid.IsValidCell(gridX, gridY)) {
-        UI::SetDebugMessage("[WARNING] Cannot place player outside grid bounds.");
+        UI::SetDebugMessage("[WARNING] Cannot place enemy outside grid bounds.");
         return false;
     }
 

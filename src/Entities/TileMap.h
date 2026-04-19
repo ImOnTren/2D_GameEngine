@@ -35,7 +35,7 @@ public:
     std::vector<TileData> GetTilesAtPosition(int x, int y) const;
 
     void RemoveTile(int x, int y);
-    void RemoveTileFromLayer(int x, int y, int layer);
+    bool RemoveTileFromLayer(int x, int y, int layer);
     bool HasTile(int x, int y, int layer = -1);
     void Clear();
 

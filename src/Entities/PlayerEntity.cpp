@@ -37,9 +37,11 @@ const Animation* PlayerEntity::FindDirectionalAnimation(const std::string& baseN
     // Backward compatibility for previously misnamed entries like "idle_down_down".
     if (const Animation* anim = getAnim(BuildDirectionalName(primaryName, direction))) return anim;
 
-    if (direction == AnimationDirection::LEFT) {
-        // Fallback: if there is no explicit *_left animation, use *_right and flip at render time.
-        if (const Animation* anim = getAnim(BuildDirectionalName(baseName, AnimationDirection::RIGHT))) return anim;
+    if (direction == AnimationDirection::LEFT || direction == AnimationDirection::RIGHT) {
+        // Fallback: if one horizontal direction is missing, use the opposite one.
+        const AnimationDirection opposite =
+            (direction == AnimationDirection::LEFT) ? AnimationDirection::RIGHT : AnimationDirection::LEFT;
+        if (const Animation* anim = getAnim(BuildDirectionalName(baseName, opposite))) return anim;
     }
 
     return nullptr;

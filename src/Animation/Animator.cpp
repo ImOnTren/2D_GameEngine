@@ -36,20 +36,24 @@ void Animator::PlayDirectional(const std::string& baseName, AnimationDirection d
     }
 
     bool needsFlip = false;
-    std::string animName;
+    std::string animName = BuildAnimationName(baseName, direction);
 
-    if (direction == AnimationDirection::LEFT) {
-        const std::string leftName = BuildAnimationName(baseName, AnimationDirection::LEFT);
-        const Animation* leftAnim = animationSet->GetAnimation(leftName);
-        if (leftAnim && !leftAnim->frames.empty()) {
-            animName = leftName;
-            needsFlip = leftAnim->flipHorizontallyAtRuntime;
+    if (direction == AnimationDirection::LEFT || direction == AnimationDirection::RIGHT) {
+        const AnimationDirection oppositeDirection =
+            (direction == AnimationDirection::LEFT) ? AnimationDirection::RIGHT : AnimationDirection::LEFT;
+        const std::string oppositeName = BuildAnimationName(baseName, oppositeDirection);
+
+        const Animation* directAnim = animationSet->GetAnimation(animName);
+        if (directAnim && !directAnim->frames.empty()) {
+            needsFlip = directAnim->flipHorizontallyAtRuntime;
         } else {
-            animName = BuildAnimationName(baseName, AnimationDirection::RIGHT);
-            needsFlip = true;
+            const Animation* oppositeAnim = animationSet->GetAnimation(oppositeName);
+            if (oppositeAnim && !oppositeAnim->frames.empty()) {
+                animName = oppositeName;
+                // Mirror opposite direction while preserving any existing runtime-flip intent.
+                needsFlip = !oppositeAnim->flipHorizontallyAtRuntime;
+            }
         }
-    } else {
-        animName = BuildAnimationName(baseName, direction);
     }
     
     // Check if already playing this animation with same flip state

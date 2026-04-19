@@ -88,7 +88,7 @@ static std::vector<Engine::AnimatedTileDefinition> DeserializeAnimatedTileDefini
                 Engine::AnimatedTileFrame frame;
                 frame.assetID = frameJson.value("assetID", "");
                 frame.tileIndex = frameJson.value("tileIndex", 0);
-                frame.duration = frameJson.value("duration", 0.2f);
+                frame.duration = frameJson.value("duration", 0.2);
                 if (!frame.assetID.empty()) {
                     def.frames.push_back(frame);
                 }
@@ -380,7 +380,7 @@ bool SaveLoad::LoadProject(Engine& engine, const std::string& filepath) {
                 Rectangle editModeCameraArea = JsonToRect(scene["editModeCameraArea"]);
                 newScene->SetEditModeCameraArea(editModeCameraArea);
             } else if (scene.contains("editModeCamera")) {
-                Rectangle editModeCameraArea = JsonToRect(scene["editCamera"]);
+                Rectangle editModeCameraArea = JsonToRect(scene["editModeCamera"]);
                 newScene->SetEditModeCameraArea(editModeCameraArea);
             }
             if (scene.contains("playModeCameraArea")) {

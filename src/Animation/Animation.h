@@ -19,7 +19,7 @@ enum class AnimationDirection {
     DOWN,
     UP,
     RIGHT,
-    LEFT        // Will use RIGHT frames but flipped horizontally
+    LEFT        // Horizontal directions can mirror each other when one variant is missing
 };
 
 // A single frame within an animation

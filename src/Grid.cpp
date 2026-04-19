@@ -81,14 +81,22 @@ void Grid::Draw() {
 
         if (startX < 0) startX = 0;
         if (startY < 0) startY = 0;
-        //==================
-        // Draw grid lines
-        for (int y = startY; y <= endY; y++) {
-            for (int x = startX; x <= endX; x++) {
-                DrawRectangleLines(x * gridTileSize, y * gridTileSize, gridTileSize, gridTileSize, DARKGRAY);
-            }
+        // Draw the grid as continuous line strips to avoid seam artifacts
+        // from per-cell rectangle outlines at fractional zoom levels.
+        const int worldLeft = startX * gridTileSize;
+        const int worldRight = (endX + 1) * gridTileSize;
+        const int worldTop = startY * gridTileSize;
+        const int worldBottom = (endY + 1) * gridTileSize;
+
+        for (int x = startX; x <= endX + 1; x++) {
+            const int worldX = x * gridTileSize;
+            DrawLine(worldX, worldTop, worldX, worldBottom, DARKGRAY);
         }
-        //==================
+
+        for (int y = startY; y <= endY + 1; y++) {
+            const int worldY = y * gridTileSize;
+            DrawLine(worldLeft, worldY, worldRight, worldY, DARKGRAY);
+        }
         EndMode2D();
         EndTextureMode();
 

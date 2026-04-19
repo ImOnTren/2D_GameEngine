@@ -13,8 +13,9 @@ public:
     [[nodiscard]] int GetLayer() const { return layer; }
     void SetLayer(const int newLayer) { layer = newLayer; }
     [[nodiscard]] Asset* GetAsset() const { return asset; }
-    [[nodiscard]] float GetScale() const { return scale; }
-    void SetScale(float newScale);
+    [[nodiscard]] bool SupportsScaling() const override { return true; }
+    [[nodiscard]] float GetScale() const override { return scale; }
+    void SetScale(float newScale) override;
     void Update(float deltaTime) override;
     void Draw() override;
     [[nodiscard]] std::unique_ptr<Entity> CreateSnapshot() const override;

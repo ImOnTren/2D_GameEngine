@@ -52,6 +52,10 @@ json AssetDefinitionToJson(const AssetDefinition& def) {
     }
 
     j["hasAnimations"] = def.hasAnimations;
+    if (def.hasAnimations) {
+        j["animationFrameWidth"] = def.animationFrameWidth;
+        j["animationFrameHeight"] = def.animationFrameHeight;
+    }
     if (def.hasAnimations && !def.animations.empty()) {
         json animArray = json::array();
         for (const auto& anim : def.animations) {
@@ -91,6 +95,8 @@ AssetDefinition JsonToAssetDefinition(const json& j) {
 
     // NEW: Deserialize animations
     def.hasAnimations = j.value("hasAnimations", false);
+    def.animationFrameWidth = j.value("animationFrameWidth", def.frameWidth);
+    def.animationFrameHeight = j.value("animationFrameHeight", def.frameHeight);
     if (def.hasAnimations && j.contains("animations")) {
         for (const auto& animJson : j["animations"]) {
             AnimationData anim;
@@ -148,8 +154,8 @@ bool SaveAssetDefinitions(const AssetManager& assetManager, const std::string& f
             // NEW: Save animations if they exist
             if (asset->HasAnimations() && asset->animationSet) {
                 def.hasAnimations = true;
-                def.frameWidth = asset->animationSet->frameWidth;
-                def.frameHeight = asset->animationSet->frameHeight;
+                def.animationFrameWidth = asset->animationSet->frameWidth;
+                def.animationFrameHeight = asset->animationSet->frameHeight;
 
                 // Convert AnimationSet animations to AnimationData for persistence
                 for (const auto& [name, anim] : asset->animationSet->animations) {
@@ -258,8 +264,8 @@ bool LoadAssetDefinitions(AssetManager& assetManager, const std::string& filepat
                 animSet->textureId = asset->id;
                 animSet->texture = asset->texture;
                 animSet->textureLoaded = asset->loaded;
-                animSet->frameWidth = def.frameWidth;
-                animSet->frameHeight = def.frameHeight;
+                animSet->frameWidth = (def.animationFrameWidth > 0) ? def.animationFrameWidth : def.frameWidth;
+                animSet->frameHeight = (def.animationFrameHeight > 0) ? def.animationFrameHeight : def.frameHeight;
 
                 // Rebuild animations from saved data
                 for (const auto& animData : def.animations) {

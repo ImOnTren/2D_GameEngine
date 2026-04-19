@@ -235,14 +235,16 @@ void AssetImporter::RenderFrameSelector() {
 
     ImGui::Text("%s", TR("importer.frame_size"));
     ImGui::SetNextItemWidth(100);
-    if (ImGui::InputInt("Width##Frame", &frameWidth, 8, 16)) {
+    std::string frameWidthLabel = std::string(TR("animation_editor.width")) + "##Frame";
+    if (ImGui::InputInt(frameWidthLabel.c_str(), &frameWidth, 8, 16)) {
         if (frameWidth < 1) frameWidth = 1;
         if (frameWidth > currentTexture.width) frameWidth = currentTexture.width;
         changed = true;
     }
     ImGui::SameLine();
     ImGui::SetNextItemWidth(100);
-    if (ImGui::InputInt("Height##Frame", &frameHeight, 8, 16)) {
+    std::string frameHeightLabel = std::string(TR("animation_editor.height")) + "##Frame";
+    if (ImGui::InputInt(frameHeightLabel.c_str(), &frameHeight, 8, 16)) {
         if (frameHeight < 1) frameHeight = 1;
         if (frameHeight > currentTexture.height) frameHeight = currentTexture.height;
         changed = true;
@@ -350,10 +352,12 @@ void AssetImporter::RenderAssetParameters() {
 
         ImGui::Text("%s", TR("tile_size"));
         ImGui::SetNextItemWidth(100);
-        ImGui::InputInt("Tile Width##Tileset", &tilesetTileWidth, 1, 8);
+        std::string tileWidthLabel = std::string(TR("tile_selection.width")) + "##Tileset";
+        ImGui::InputInt(tileWidthLabel.c_str(), &tilesetTileWidth, 1, 8);
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100);
-        ImGui::InputInt("Tile Height##Tileset", &tilesetTileHeight, 1, 8);
+        std::string tileHeightLabel = std::string(TR("tile_selection.height")) + "##Tileset";
+        ImGui::InputInt(tileHeightLabel.c_str(), &tilesetTileHeight, 1, 8);
 
         if (tilesetTileWidth < 1) tilesetTileWidth = 1;
         if (tilesetTileHeight < 1) tilesetTileHeight = 1;

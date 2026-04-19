@@ -1,6 +1,56 @@
 #include "StaticEntity.h"
 #include <cmath>
 
+namespace {
+Vector2 ResolveStaticEntityBaseSize(const Grid& grid, const Asset* asset) {
+    if (!asset || !asset->loaded) {
+        const float tile = static_cast<float>(grid.GetTileSize());
+        return {tile, tile};
+    }
+
+    if (asset->SpriteSourceRect.width > 0 && asset->SpriteSourceRect.height > 0) {
+        return {asset->SpriteSourceRect.width, asset->SpriteSourceRect.height};
+    }
+
+    if (asset->hasAnimations && asset->animationSet &&
+        asset->animationSet->frameWidth > 0 && asset->animationSet->frameHeight > 0) {
+        return {
+            static_cast<float>(asset->animationSet->frameWidth),
+            static_cast<float>(asset->animationSet->frameHeight)
+        };
+    }
+
+    return {
+        static_cast<float>(asset->texture.width),
+        static_cast<float>(asset->texture.height)
+    };
+}
+
+void TryPlayDefaultAnimation(Animator& animator, const AnimationSet* animationSet) {
+    if (!animationSet) return;
+
+    const Animation* idleAnim = animationSet->GetAnimation("idle");
+    if (idleAnim && !idleAnim->frames.empty()) {
+        animator.Play("idle");
+        return;
+    }
+
+    for (const auto& [name, anim] : animationSet->animations) {
+        if (anim.loop && !anim.frames.empty()) {
+            animator.Play(name);
+            return;
+        }
+    }
+
+    for (const auto& [name, anim] : animationSet->animations) {
+        if (!anim.frames.empty()) {
+            animator.Play(name);
+            return;
+        }
+    }
+}
+}
+
 StaticEntity::StaticEntity(Grid& grid, Asset* asset, const int gridX, const int gridY, const int layer)
     : Entity(
           {
@@ -29,30 +79,14 @@ StaticEntity::StaticEntity(Grid& grid, Asset* asset, const int gridX, const int 
 {
     active = true;
 
-    float width, height;
+    const Vector2 resolvedBaseSize = ResolveStaticEntityBaseSize(grid, asset);
+    const float width = resolvedBaseSize.x;
+    const float height = resolvedBaseSize.y;
 
-    if (asset && asset->loaded) {
-        // Check if asset has a selected frame
-        if (asset->SpriteSourceRect.width > 0 && asset->SpriteSourceRect.height > 0) {
-            // Use selected frame dimensions
-            width = asset->SpriteSourceRect.width;
-            height = asset->SpriteSourceRect.height;
-        } else {
-            // Use full texture dimensions
-            width = static_cast<float>(asset->texture.width);
-            height = static_cast<float>(asset->texture.height);
-        }
-    } else {
-        // Fallback to grid tile size
-        width = static_cast<float>(grid.GetTileSize());
-        height = static_cast<float>(grid.GetTileSize());
-    }
-
-    // Set size
     size = {width, height};
     baseSize = {width, height};
+    SetCollisionBox({0.0f, 0.0f}, size);
 
-    // Center in grid cell
     const int tileSize = grid.GetTileSize();
     position.x = static_cast<float>(cellX * tileSize) + (static_cast<float>(tileSize) - width) / 2.0f;
     position.y = static_cast<float>(cellY * tileSize) + (static_cast<float>(tileSize) - height) / 2.0f;
@@ -60,19 +94,18 @@ StaticEntity::StaticEntity(Grid& grid, Asset* asset, const int gridX, const int 
 
 void StaticEntity::SetScale(float newScale) {
     if (newScale <= 0.0f) {
-        newScale = 0.1f;  // Minimum scale
+        newScale = 0.1f;
     }
     if (newScale > 10.0f) {
-        newScale = 10.0f;  // Maximum scale
+        newScale = 10.0f;
     }
 
     scale = newScale;
 
-    // Update size based on scale while maintaining aspect ratio
     size.x = baseSize.x * scale;
     size.y = baseSize.y * scale;
+    SetCollisionBox({0.0f, 0.0f}, size);
 
-    // Recenter the entity in its grid cell
     const int tileSize = grid.GetTileSize();
     position.x = static_cast<float>(cellX) * static_cast<float>(tileSize) +
                  (static_cast<float>(tileSize) - size.x) / 2.0f;
@@ -84,7 +117,7 @@ void StaticEntity::Update(float deltaTime) {
     if (asset && asset->hasAnimations) {
         if (animator.GetAnimationSet() == nullptr && asset->animationSet) {
             animator.SetAnimationSet(asset->animationSet.get());
-            animator.Play("idle");
+            TryPlayDefaultAnimation(animator, asset->animationSet.get());
         }
         animator.Update(deltaTime);
     }
@@ -94,34 +127,35 @@ void StaticEntity::Draw() {
     if (!active || !asset || !asset->loaded) return;
 
     Rectangle sourceRect;
+    Texture2D drawTexture = asset->texture;
 
-    // ROZHODNUTIE: Čo ideme kresliť?
     if (asset->hasAnimations && animator.IsPlaying()) {
-        // Ak hrá animácia (Play Mode), zoberieme aktuálny snímok
         sourceRect = animator.GetCurrentFrameRect();
+        Texture2D animTexture = animator.GetTexture();
+        if (animTexture.id != 0) {
+            drawTexture = animTexture;
+        }
     }
     else if (asset->hasSelectedFrame) {
-        // Ak sme v Editore, kreslíme len vybraný statický obrázok
         sourceRect = asset->SpriteSourceRect;
     }
     else {
-        sourceRect = { 0, 0, (float)asset->texture.width, (float)asset->texture.height };
+        sourceRect = {0, 0, (float)drawTexture.width, (float)drawTexture.height};
     }
 
-    // CIEĽ: Tu sa zachová tvoje scaleovanie
-    // size.x a size.y už v sebe majú započítaný scale z funkcie SetScale()
     const Rectangle destRect = {
         position.x,
         position.y,
         size.x,
         size.y
     };
+
     Rectangle drawDest = destRect;
     if (asset->hasAnimations && animator.IsPlaying() && animator.IsFlippedHorizontal()) {
         drawDest.width = -drawDest.width;
     }
 
-    DrawTexturePro(asset->texture, sourceRect, drawDest, {0, 0}, 0.0f, WHITE);
+    DrawTexturePro(drawTexture, sourceRect, drawDest, {0, 0}, 0.0f, WHITE);
 }
 
 std::unique_ptr<Entity> StaticEntity::CreateSnapshot() const {
@@ -136,11 +170,7 @@ std::unique_ptr<Entity> StaticEntity::CreateSnapshot() const {
 
 void StaticEntity::RestoreFromSnapshot(const Entity *snapshot) {
     if (const auto* staticSnapshot = dynamic_cast<const StaticEntity*>(snapshot)) {
-        position = staticSnapshot->position;
-        velocity = staticSnapshot->velocity;
-        size = staticSnapshot->size;
-        rotation = staticSnapshot->rotation;
-        active = staticSnapshot->active;
+        Entity::RestoreFromSnapshot(snapshot);
         cellX = staticSnapshot->cellX;
         cellY = staticSnapshot->cellY;
         layer = staticSnapshot->layer;

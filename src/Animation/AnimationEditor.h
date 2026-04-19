@@ -56,7 +56,7 @@ private:
         bool loop = true;
         AnimationTrigger trigger = AnimationTrigger::LOOP;
         AnimationDirection direction = AnimationDirection::NONE;
-        bool isAutoFlipped = false;  // True if this was auto-created as LEFT from RIGHT
+        bool isAutoFlipped = false;  // True if this was auto-created from the opposite horizontal direction
     };
 
     std::vector<AnimationDefinition> definedAnimations;
@@ -69,7 +69,7 @@ private:
     bool selectedLoop = true;
     int selectedTrigger = 0;  // Index into trigger options
     int selectedDirection = 0; // Index into direction options
-    bool autoCreateLeft = true; // Auto-create LEFT when adding RIGHT
+    bool autoCreateOppositeHorizontal = true; // Auto-create opposite horizontal direction when adding LEFT/RIGHT
     char sourceAssetIdBuffer[128] = "";
 
     // Preview state
