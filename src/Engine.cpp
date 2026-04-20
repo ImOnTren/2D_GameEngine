@@ -98,7 +98,7 @@ bool Engine::ResolveAnimatedTileFrame(const TileData& tile, const Asset*& outAss
         return true;
     }
 
-    double localTime = static_cast<double>(animatedTileClockSeconds);
+    double localTime = animatedTileClockSeconds;
     if (def.loop) {
         localTime = std::fmod(localTime, totalDuration);
         if (localTime < 0.0) localTime += totalDuration;

@@ -426,7 +426,6 @@ bool SaveLoad::LoadProject(Engine& engine, const std::string& filepath) {
             UI::SetDebugMessage("[WARNING] 'startingSceneID' not found in project file. Using default.");
         }
 
-        engine.currentMode = Engine::Mode::EDIT;
         engine.StopPlayMode();
         engine.currentTool = Engine::ToolState::NONE;
         UI::SetDebugMessage("Successfully loaded project from " + filepath);

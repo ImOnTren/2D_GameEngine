@@ -78,6 +78,7 @@ StaticEntity::StaticEntity(Grid& grid, Asset* asset, const int gridX, const int 
       layer(layer)
 {
     active = true;
+    SetCollisionEnabled(false);
 
     const Vector2 resolvedBaseSize = ResolveStaticEntityBaseSize(grid, asset);
     const float width = resolvedBaseSize.x;
